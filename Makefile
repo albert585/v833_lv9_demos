@@ -34,7 +34,7 @@ OBJS = $(AOBJS) $(COBJS)
 all: default
 
 %.o: %.c
-	@cp -n $(LVGL_DIR)/config/$(BOARD)/lv* $(LVGL_DIR)
+	@cp -vn $(LVGL_DIR)/config/$(BOARD)/lv* $(LVGL_DIR)
 	@$(CC)   $(CFLAGS) -c $< -o $@
 	@echo "CC $<"
     

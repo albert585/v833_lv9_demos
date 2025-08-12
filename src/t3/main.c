@@ -5,8 +5,17 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
-
+#define LV_HOR_RES_MAX (320) 
+#define LV_VER_RES_MAX (240) 
 #define DISP_BUF_SIZE (128 * 1024)
+void setbtn() {
+    lv_obj_t * btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(btn, 100, 50);
+    lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_t * label = lv_label_create(btn);
+    lv_label_set_text(label, "Click Me!");
+    lv_obj_center(label);
+}
 int main(void)
 {
     /*LittlevGL init*/
@@ -27,8 +36,8 @@ int main(void)
     lv_disp_drv_init(&disp_drv);
     disp_drv.draw_buf   = &disp_buf;
     disp_drv.flush_cb   = fbdev_flush;
-    disp_drv.hor_res    = 800;
-    disp_drv.ver_res    = 480;
+    disp_drv.hor_res    = 320;
+    disp_drv.ver_res    = 240;
     lv_disp_drv_register(&disp_drv);
 
     evdev_init();
@@ -47,12 +56,7 @@ int main(void)
     lv_img_set_src(cursor_obj, &mouse_cursor_icon);           //Set the image source
     lv_indev_set_cursor(mouse_indev, cursor_obj);           //  Connect the image  object to the driver
 #endif
-    lv_obj_t * btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(btn, 100, 50);
-    lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_t * label = lv_label_create(btn);
-    lv_label_set_text(label, "Click Me!");
-    lv_obj_center(label);
+    setbtn();
     while(1) {
         lv_timer_handler();
         usleep(5000);
