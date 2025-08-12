@@ -12,4 +12,4 @@ git clone --recursive https://github.com/YanMaoOvO/v833_lv_demos
 
 ## 2. 编译项目：
 
-**待完善**
+make BOARD=<你的机型>
