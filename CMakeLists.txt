@@ -16,8 +16,9 @@ set(CMAKE_C_STANDARD 99) # LVGL officially supports C99 and above
 set(CMAKE_CXX_STANDARD 17) #C17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic  -pthread")
-set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ ")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic")
+set(CMAKE_EXE_LINKER_FLAGS "-L/srv/evdev/lib  -static ")
+
 set(LV_BUILD_SET_CONFIG_OPTS ON CACHE BOOL
     "create CMAKE variables from lv_conf_internal.h" FORCE)
 
@@ -30,7 +31,6 @@ if (CONFIG_LV_USE_EVDEV)
 
     list(APPEND PKG_CONFIG_LIB ${EVDEV_LIBRARIES})
     list(APPEND PKG_CONFIG_INC ${EVDEV_INCLUDE_DIRS})
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/indev_backends/evdev.c)
 
 endif()
 
@@ -42,7 +42,6 @@ if (CONFIG_LV_USE_LINUX_DRM)
 
     list(APPEND PKG_CONFIG_LIB ${LIBDRM_LIBRARIES})
     list(APPEND PKG_CONFIG_INC ${LIBDRM_INCLUDE_DIRS})
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/drm.c)
 
 endif()
 
@@ -89,8 +88,6 @@ if (CONFIG_LV_USE_SDL)
 
     list(APPEND PKG_CONFIG_LIB ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
     list(APPEND PKG_CONFIG_INC ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
-
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/sdl.c)
 endif()
 
 
@@ -139,8 +136,6 @@ if (CONFIG_LV_USE_LINUX_FBDEV)
 
     # FBDEV has no dependencies
     message("Including FBDEV support")
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/fbdev.c)
-
 endif()
 
 if (CONFIG_LV_USE_OPENGLES)
