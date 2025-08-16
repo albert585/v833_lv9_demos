@@ -1,0 +1,7 @@
+make: Entering directory '/home/albert/v833_lv9_demos/build'
+[  1%] Built target lvgl_linux
+[ 11%] Built target lvgl_demos
+[ 43%] Built target lvgl_examples
+[ 99%] Built target lvgl
+[100%] Built target lvglsim
+make: Leaving directory '/home/albert/v833_lv9_demos/build'
