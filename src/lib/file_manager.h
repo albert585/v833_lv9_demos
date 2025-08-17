@@ -1,5 +1,5 @@
 #include "lvgl/lvgl.h"
 
-static lv_obj_t *manager = NULL;
+extern lv_obj_t *manager; 
 
 extern void  file_manager(void);

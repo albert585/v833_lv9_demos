@@ -3,5 +3,6 @@ make: Entering directory '/home/albert/v833_lv9_demos/build'
 [ 11%] Built target lvgl_demos
 [ 43%] Built target lvgl_examples
 [ 99%] Built target lvgl
-[100%] Built target lvglsim
+[ 99%] Building C object CMakeFiles/lvglsim.dir/src/main.c.o
+[100%] Linking C executable bin/lvglsim
 make: Leaving directory '/home/albert/v833_lv9_demos/build'

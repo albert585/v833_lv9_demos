@@ -4,10 +4,9 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "lvgl/lvgl.h"
-#include "lib/buttons.h"
-#include "lib/events.h"
 #include "lib/file_manager.h"
 #include "lib/container.h"
+#include "lib/button.h"
 
 lv_display_t * disp = NULL;
 

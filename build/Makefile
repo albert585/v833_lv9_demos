@@ -239,32 +239,32 @@ lvgl_demos/fast:
 	$(MAKE) $(MAKESILENT) -f lvgl/CMakeFiles/lvgl_demos.dir/build.make lvgl/CMakeFiles/lvgl_demos.dir/build
 .PHONY : lvgl_demos/fast
 
-src/lib/buttons.o: src/lib/buttons.c.o
-.PHONY : src/lib/buttons.o
+src/lib/button.o: src/lib/button.c.o
+.PHONY : src/lib/button.o
 
 # target to build an object file
-src/lib/buttons.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/buttons.c.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/buttons.c.o
-.PHONY : src/lib/buttons.c.o
+src/lib/button.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/button.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/button.c.o
+.PHONY : src/lib/button.c.o
 
-src/lib/buttons.i: src/lib/buttons.c.i
-.PHONY : src/lib/buttons.i
+src/lib/button.i: src/lib/button.c.i
+.PHONY : src/lib/button.i
 
 # target to preprocess a source file
-src/lib/buttons.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/buttons.c.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/buttons.c.i
-.PHONY : src/lib/buttons.c.i
+src/lib/button.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/button.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/button.c.i
+.PHONY : src/lib/button.c.i
 
-src/lib/buttons.s: src/lib/buttons.c.s
-.PHONY : src/lib/buttons.s
+src/lib/button.s: src/lib/button.c.s
+.PHONY : src/lib/button.s
 
 # target to generate assembly for a file
-src/lib/buttons.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/buttons.c.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/buttons.c.s
-.PHONY : src/lib/buttons.c.s
+src/lib/button.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/button.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/button.c.s
+.PHONY : src/lib/button.c.s
 
 src/lib/container.o: src/lib/container.c.o
 .PHONY : src/lib/container.o
@@ -389,9 +389,9 @@ help:
 	@echo "... lvgl_examples"
 	@echo "... lvgl_linux"
 	@echo "... lvglsim"
-	@echo "... src/lib/buttons.o"
-	@echo "... src/lib/buttons.i"
-	@echo "... src/lib/buttons.s"
+	@echo "... src/lib/button.o"
+	@echo "... src/lib/button.i"
+	@echo "... src/lib/button.s"
 	@echo "... src/lib/container.o"
 	@echo "... src/lib/container.i"
 	@echo "... src/lib/container.s"

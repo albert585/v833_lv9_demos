@@ -1,6 +1,8 @@
-#include "buttons.h"
-#include "events.h"
-#include "container.h"
+#include "./button.h"
+#include "./container.h"
+#include "./file_manager.h"
+#include "./events.h"
+
 
 void button(void)
 {
@@ -13,7 +15,7 @@ void button(void)
     lv_obj_add_event_cb(btn1, event_open_manager, LV_EVENT_ALL, NULL);
 
     lv_obj_align(btn1, LV_ALIGN_LEFT_MID, 40, 0);
-    lv_obj_align(btn2, LV_ALIGN_LEFT_MID, 60, 0);
+    lv_obj_align(btn2, LV_ALIGN_LEFT_MID, 100, 0);
 
     lv_obj_remove_flag(btn1, LV_OBJ_FLAG_PRESS_LOCK);
     lv_obj_remove_flag(btn1, LV_OBJ_FLAG_PRESS_LOCK);
@@ -29,3 +31,4 @@ void button(void)
     
     
 }
+
