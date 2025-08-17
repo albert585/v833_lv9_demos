@@ -1,6 +1,7 @@
 #include "./events.h"
 #include "./file_manager.h"
 #include "./container.h"
+#include "./settings.h"
 void event_open_manager(lv_event_t * e)
 {
     lv_event_code_t code = lv_event_get_code(e);

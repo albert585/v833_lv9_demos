@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <pthread.h>
 #include <time.h>
+#include <stdlib.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <string.h>
@@ -13,17 +14,15 @@
 #include "lib/container.h"
 #include "lib/button.h"
 #include "lib/settings.h"
-#error "the programme is unavalible"
-#if 0
+#warning "the programme`s some functions are  unavalible!"
 lv_display_t * disp = NULL;
-extern int homed  = 0;
-extern int powerd  = 0;
-extern uint32_t sleepTs     = -1;
-extern uint32_t homeClickTs = -1;
-extern uint32_t backgroundTs = -1;
-extern uint32_t custom_tick_get(void);
+// extern int homed  = 0;
+// extern int powerd  = 0;
+// extern uint32_t sleepTs     = -1;
+// extern uint32_t homeClickTs = -1;
+// extern uint32_t backgroundTs = -1;
+// extern uint32_t custom_tick_get(void);
 
-getcwd(homepath, PATH_MAX_LENGTH);
 //设置屏幕与输入设备
 const char *getenv_default(const char *name, const char *default_val)
 {
@@ -43,7 +42,7 @@ static void lv_linux_touch_init(){
     lv_indev_set_display(touch, disp);
     lv_evdev_set_calibration(touch,-40,940,310,25);
 }
-
+#if 0
 void switchBackground(void){
     if(backgroundTs != -1) return;
     backgroundTs = custom_tick_get();
@@ -76,7 +75,7 @@ void switchRobot(){
     chdir("/mnt/app");
     system("./robot_run &");
 }
-
+#endif
 
 
 
@@ -123,4 +122,3 @@ uint32_t custom_tick_get(void)
     uint32_t time_ms = now_ms - start_ms;
     return time_ms;
 }
-#endif

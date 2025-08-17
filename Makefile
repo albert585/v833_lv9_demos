@@ -239,32 +239,140 @@ lvgl_demos/fast:
 	$(MAKE) $(MAKESILENT) -f lvgl/CMakeFiles/lvgl_demos.dir/build.make lvgl/CMakeFiles/lvgl_demos.dir/build
 .PHONY : lvgl_demos/fast
 
-src/lib/1.o: src/lib/1.c.o
-.PHONY : src/lib/1.o
+src/lib/button.o: src/lib/button.c.o
+.PHONY : src/lib/button.o
 
 # target to build an object file
-src/lib/1.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/1.c.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/1.c.o
-.PHONY : src/lib/1.c.o
+src/lib/button.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/button.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/button.c.o
+.PHONY : src/lib/button.c.o
 
-src/lib/1.i: src/lib/1.c.i
-.PHONY : src/lib/1.i
+src/lib/button.i: src/lib/button.c.i
+.PHONY : src/lib/button.i
 
 # target to preprocess a source file
-src/lib/1.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/1.c.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/1.c.i
-.PHONY : src/lib/1.c.i
+src/lib/button.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/button.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/button.c.i
+.PHONY : src/lib/button.c.i
 
-src/lib/1.s: src/lib/1.c.s
-.PHONY : src/lib/1.s
+src/lib/button.s: src/lib/button.c.s
+.PHONY : src/lib/button.s
 
 # target to generate assembly for a file
-src/lib/1.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/1.c.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/1.c.s
-.PHONY : src/lib/1.c.s
+src/lib/button.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/button.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/button.c.s
+.PHONY : src/lib/button.c.s
+
+src/lib/container.o: src/lib/container.c.o
+.PHONY : src/lib/container.o
+
+# target to build an object file
+src/lib/container.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/container.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/container.c.o
+.PHONY : src/lib/container.c.o
+
+src/lib/container.i: src/lib/container.c.i
+.PHONY : src/lib/container.i
+
+# target to preprocess a source file
+src/lib/container.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/container.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/container.c.i
+.PHONY : src/lib/container.c.i
+
+src/lib/container.s: src/lib/container.c.s
+.PHONY : src/lib/container.s
+
+# target to generate assembly for a file
+src/lib/container.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/container.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/container.c.s
+.PHONY : src/lib/container.c.s
+
+src/lib/events.o: src/lib/events.c.o
+.PHONY : src/lib/events.o
+
+# target to build an object file
+src/lib/events.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/events.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/events.c.o
+.PHONY : src/lib/events.c.o
+
+src/lib/events.i: src/lib/events.c.i
+.PHONY : src/lib/events.i
+
+# target to preprocess a source file
+src/lib/events.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/events.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/events.c.i
+.PHONY : src/lib/events.c.i
+
+src/lib/events.s: src/lib/events.c.s
+.PHONY : src/lib/events.s
+
+# target to generate assembly for a file
+src/lib/events.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/events.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/events.c.s
+.PHONY : src/lib/events.c.s
+
+src/lib/file_manager.o: src/lib/file_manager.c.o
+.PHONY : src/lib/file_manager.o
+
+# target to build an object file
+src/lib/file_manager.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/file_manager.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/file_manager.c.o
+.PHONY : src/lib/file_manager.c.o
+
+src/lib/file_manager.i: src/lib/file_manager.c.i
+.PHONY : src/lib/file_manager.i
+
+# target to preprocess a source file
+src/lib/file_manager.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/file_manager.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/file_manager.c.i
+.PHONY : src/lib/file_manager.c.i
+
+src/lib/file_manager.s: src/lib/file_manager.c.s
+.PHONY : src/lib/file_manager.s
+
+# target to generate assembly for a file
+src/lib/file_manager.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/file_manager.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/file_manager.c.s
+.PHONY : src/lib/file_manager.c.s
+
+src/lib/settings.o: src/lib/settings.c.o
+.PHONY : src/lib/settings.o
+
+# target to build an object file
+src/lib/settings.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/settings.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/settings.c.o
+.PHONY : src/lib/settings.c.o
+
+src/lib/settings.i: src/lib/settings.c.i
+.PHONY : src/lib/settings.i
+
+# target to preprocess a source file
+src/lib/settings.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/settings.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/settings.c.i
+.PHONY : src/lib/settings.c.i
+
+src/lib/settings.s: src/lib/settings.c.s
+.PHONY : src/lib/settings.s
+
+# target to generate assembly for a file
+src/lib/settings.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/settings.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/settings.c.s
+.PHONY : src/lib/settings.c.s
 
 src/main.o: src/main.c.o
 .PHONY : src/main.o
@@ -308,9 +416,21 @@ help:
 	@echo "... lvgl_examples"
 	@echo "... lvgl_linux"
 	@echo "... lvglsim"
-	@echo "... src/lib/1.o"
-	@echo "... src/lib/1.i"
-	@echo "... src/lib/1.s"
+	@echo "... src/lib/button.o"
+	@echo "... src/lib/button.i"
+	@echo "... src/lib/button.s"
+	@echo "... src/lib/container.o"
+	@echo "... src/lib/container.i"
+	@echo "... src/lib/container.s"
+	@echo "... src/lib/events.o"
+	@echo "... src/lib/events.i"
+	@echo "... src/lib/events.s"
+	@echo "... src/lib/file_manager.o"
+	@echo "... src/lib/file_manager.i"
+	@echo "... src/lib/file_manager.s"
+	@echo "... src/lib/settings.o"
+	@echo "... src/lib/settings.i"
+	@echo "... src/lib/settings.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
