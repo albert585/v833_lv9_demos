@@ -22,4 +22,5 @@ rad.json
 TestResults.xml
 CMakeFiles
 CMakeCache.txt
+build
 *.log
