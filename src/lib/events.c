@@ -2,6 +2,7 @@
 #include "./file_manager.h"
 #include "./container.h"
 #include "./settings.h"
+#include "../main.h"
 void event_open_manager(lv_event_t * e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -26,4 +27,9 @@ void event_open_settings(lv_event_t *e)
       settings();
     }
 
+}
+
+void btn_robot_click(lv_event_t * e) // static可以防止同名冲突
+{
+    switchRobot();
 }

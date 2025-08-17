@@ -28,6 +28,12 @@ void button(void)
 
     lv_obj_center(label1);
     lv_obj_center(label2);
+    lv_obj_t * btn_robot = lv_btn_create(parent);
+    lv_obj_align(btn_robot, LV_ALIGN_LEFT_MID, 220, 0);
+    lv_obj_t * btn_label_robot = lv_label_create(btn_robot);
+    lv_label_set_text(btn_label_robot, "robot");
+    lv_obj_center(btn_label_robot);
+    lv_obj_add_event_cb(btn_robot, btn_robot_click, LV_EVENT_CLICKED, NULL);
     
     
 }
