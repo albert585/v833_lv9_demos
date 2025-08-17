@@ -16,8 +16,8 @@ set(CMAKE_C_STANDARD 99) # LVGL officially supports C99 and above
 set(CMAKE_CXX_STANDARD 17) #C17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic")
-set(CMAKE_EXE_LINKER_FLAGS "-L/srv/evdev/lib  -static ")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic  -I/srv/ffmpeg/include -I/srv/zlib-armv7/include")
+set(CMAKE_EXE_LINKER_FLAGS "-L/srv/evdev/lib  -L/srv/zlib-armv7/install/lib/ -static-libgcc -static-libstdc++  -Wl,-Bstatic  -lm -lz -lpthread -levdev ")
 
 set(LV_BUILD_SET_CONFIG_OPTS ON CACHE BOOL
     "create CMAKE variables from lv_conf_internal.h" FORCE)

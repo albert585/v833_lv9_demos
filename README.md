@@ -7,9 +7,14 @@
 
 ## 1. 拉取项目：
 ```bash
-git clone --recursive https://github.com/YanMaoOvO/v833_lv_demos
+git clone --recursive https://github.com/albert585/v833_lv9_demos
 ```
 
 ## 2. 编译项目：
+```bash
+cmake -DCMAKE_TOOLCHAIN_FILE=./user_cross_compile_setup.cmake -B build -S .
+make -C build -j$(nproc)
+```
 
-make BOARD=<你的机型>
+# TODO
+太多了
