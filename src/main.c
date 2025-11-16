@@ -173,7 +173,7 @@ int main()
   disphd = open("/dev/disp", O_RDWR);
   fbd = open("/dev/fb0" , O_RDWR);
   getcwd(homepath, PATH_MAX_LENGTH);
-  daemon(1,0);
+  //daemon(1,0);
   lcdRefresh();
   lv_init();
   lv_linux_disp_init();

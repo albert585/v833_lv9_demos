@@ -27,9 +27,9 @@ void button(void)
 
     lv_obj_center(label1);
     lv_obj_center(label2);
-    lv_obj_align_to(btn2,btn1, LV_ALIGN_OUT_BOTTOM_MID, 40, 0);
+    lv_obj_align_to(btn2,btn1, LV_ALIGN_OUT_BOTTOM_MID, 500, 0);
     lv_obj_t * btn_robot = lv_btn_create(parent);
-    lv_obj_align_to(btn_robot,btn2,LV_ALIGN_OUT_LEFT_MID, 80, 0);
+    lv_obj_align_to(btn_robot,btn2,LV_ALIGN_OUT_LEFT_MID, 100, 0);
     lv_obj_t * btn_label_robot = lv_label_create(btn_robot);
     lv_label_set_text(btn_label_robot, "robot");
     lv_obj_center(btn_label_robot);

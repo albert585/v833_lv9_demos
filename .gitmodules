@@ -1,5 +1,5 @@
 
 [submodule "lvgl"]
 	path = lvgl
-	url = https://ghproxy.net/https://github.com/lvgl/lvgl
+	url = https://github.com/lvgl/lvgl
 	branch = release/v9.3
