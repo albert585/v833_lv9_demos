@@ -1,370 +1,676 @@
-#include "audio.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include "ff_player.h"
 
-static AudioState *g_audio_state = NULL;
+#define BUFFER_SIZE 4096
+#define MAX_CHANNELS 6
 
-// 初始化FFmpeg并打开音频文件
-int init_ffmpeg(AudioState *state, const char *filename) {
-    int ret;
 
-    // 打开输入文件
-    ret = avformat_open_input(&state->format_ctx, filename, NULL, NULL);
-    if (ret < 0) {
-        fprintf(stderr, "无法打开文件: %s\n", filename);
-        return -1;
+static void * audio_thread_func(void * arg);
+static void * video_thread_func(void * arg);
+static bool ffmpeg_pix_fmt_has_alpha(enum AVPixelFormat pix_fmt);
+static int ffmpeg_image_allocate(ff_player_t * player);
+static uint8_t * ffmpeg_get_img_data(ff_player_t * player);
+
+ff_player_t * player_create()
+{
+    ff_player_t * player = malloc(sizeof(ff_player_t));
+    if(!player) return NULL;
+
+    memset(player, 0, sizeof(ff_player_t));
+
+    // 初始化互斥锁
+    pthread_mutex_init(&player->mutex, NULL);
+
+    // 初始化状态
+    player->state = PLAYER_STOPPED;
+    player->seek_request = 0;
+    player->current_pts = 0;
+
+    return player;
+}
+
+int player_open(ff_player_t * player, const char * filename)
+{
+    if(!player) return -1;
+
+    pthread_mutex_lock(&player->mutex);
+
+    // 如果已经在播放，直接返回
+    if(player->state == PLAYER_PLAYING) {
+        pthread_mutex_unlock(&player->mutex);
+        return -2;
     }
 
-    // 查找流信息
-    ret = avformat_find_stream_info(state->format_ctx, NULL);
-    if (ret < 0) {
+    player->filename = strdup(filename);
+
+    int ret = 0;
+
+    // 打开音频文件
+    if(avformat_open_input(&player->format_ctx, player->filename, NULL, NULL) < 0) {
+        fprintf(stderr, "无法打开文件\n");
+        ret = -1;
+        goto cleanup;
+    }
+
+    if(avformat_find_stream_info(player->format_ctx, NULL) < 0) {
         fprintf(stderr, "无法获取流信息\n");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
+
+    pthread_mutex_unlock(&player->mutex);
+    return 0;
+
+cleanup:
+    player_stop(player);
+    pthread_mutex_unlock(&player->mutex);
+    return ret;
+}
+
+int player_init_audio(ff_player_t * player)
+{
+    if(!player) return -1;
+    pthread_mutex_lock(&player->mutex);
+
+    int ret = 0;
 
     // 查找音频流
-    state->audio_stream_idx = -1;
-    for (int i = 0; i < state->format_ctx->nb_streams; i++) {
-        if (state->format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-            state->audio_stream_idx = i;
+    player->audio_stream_index = -1;
+    for(int i = 0; i < player->format_ctx->nb_streams; i++) {
+        if(player->format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            player->audio_stream_index = i;
             break;
         }
     }
 
-    if (state->audio_stream_idx == -1) {
-        fprintf(stderr, "找不到音频流\n");
-        return -1;
+    if(player->audio_stream_index == -1) {
+        fprintf(stderr, "未找到音频流\n");
+        ret = -1;
+        goto cleanup;
     }
 
     // 获取解码器
-    AVCodecParameters *codecpar = state->format_ctx->streams[state->audio_stream_idx]->codecpar;
-    const AVCodec *codec = avcodec_find_decoder(codecpar->codec_id);
-    if (!codec) {
-        fprintf(stderr, "找不到解码器\n");
-        return -1;
+    AVCodecParameters * codecpar = player->format_ctx->streams[player->audio_stream_index]->codecpar;
+    const AVCodec * codec        = avcodec_find_decoder(codecpar->codec_id);
+    if(!codec) {
+        fprintf(stderr, "未找到对应的解码器\n");
+        ret = -1;
+        goto cleanup;
     }
 
-    // 创建解码器上下文
-    state->codec_ctx = avcodec_alloc_context3(codec);
-    if (!state->codec_ctx) {
+    player->audio_codec_ctx = avcodec_alloc_context3(codec);
+    if(!player->audio_codec_ctx) {
         fprintf(stderr, "无法分配解码器上下文\n");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
 
-    // 复制参数到解码器上下文
-    ret = avcodec_parameters_to_context(state->codec_ctx, codecpar);
-    if (ret < 0) {
-        fprintf(stderr, "无法复制参数到解码器上下文\n");
-        return -1;
+    if(avcodec_parameters_to_context(player->audio_codec_ctx, codecpar) < 0) {
+        fprintf(stderr, "无法复制编解码器参数到解码器上下文\n");
+        ret = -1;
+        goto cleanup;
     }
 
-    // 打开解码器
-    ret = avcodec_open2(state->codec_ctx, codec, NULL);
-    if (ret < 0) {
+    if(avcodec_open2(player->audio_codec_ctx, codec, NULL) < 0) {
         fprintf(stderr, "无法打开解码器\n");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
 
-    // 初始化包和帧
-    state->pkt = av_packet_alloc();
-    state->frame = av_frame_alloc();
-    if (!state->pkt || !state->frame) {
-        fprintf(stderr, "无法分配包或帧\n");
-        return -1;
+    // 设置重采样
+    player->swr_ctx = swr_alloc();
+    if(!player->swr_ctx) {
+        fprintf(stderr, "无法分配重采样上下文\n");
+        ret = -1;
+        goto cleanup;
     }
 
-    // 初始化重采样器
-    state->swr_ctx = swr_alloc();
-    if (!state->swr_ctx) {
-        fprintf(stderr, "无法分配重采样器\n");
-        return -1;
-    }
+    // 设置重采样参数
+    av_opt_set_int(player->swr_ctx, "in_channel_layout", av_get_default_channel_layout(player->audio_codec_ctx->channels), 0);
+    av_opt_set_int(player->swr_ctx, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
+    av_opt_set_int(player->swr_ctx, "in_sample_rate", player->audio_codec_ctx->sample_rate, 0);
+    av_opt_set_int(player->swr_ctx, "out_sample_rate", 44100, 0);
+    av_opt_set_sample_fmt(player->swr_ctx, "in_sample_fmt", player->audio_codec_ctx->sample_fmt, 0);
+    av_opt_set_sample_fmt(player->swr_ctx, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
 
-    // 设置重采样参数 - 使用新API处理通道布局
-    AVChannelLayout in_ch_layout = {0};
-    AVChannelLayout out_ch_layout = AV_CHANNEL_LAYOUT_STEREO;
-
-    // 获取输入通道布局
-    if (state->codec_ctx->ch_layout.order != AV_CHANNEL_ORDER_UNSPEC) {
-        in_ch_layout = state->codec_ctx->ch_layout;
-    } else {
-        // 如果通道布局未指定，使用默认布局
-        av_channel_layout_default(&in_ch_layout, state->codec_ctx->ch_layout.nb_channels);
-    }
-
-    // 使用新API设置重采样器参数
-    ret = swr_alloc_set_opts2(&state->swr_ctx,
-                         &out_ch_layout, AV_SAMPLE_FMT_S16, 44100,
-                         &in_ch_layout, state->codec_ctx->sample_fmt, state->codec_ctx->sample_rate,
-                         0, NULL);
-    if (ret < 0) {
-        fprintf(stderr, "无法设置重采样选项\n");
-        return -1;
-    }
-
-    ret = swr_init(state->swr_ctx);
-    if (ret < 0) {
+    if(swr_init(player->swr_ctx) < 0) {
         fprintf(stderr, "无法初始化重采样器\n");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
 
-    // 设置ALSA参数
-    state->alsa_format = SND_PCM_FORMAT_S16_LE;
-    state->alsa_channels = 2;
-    state->alsa_sample_rate = 44100;
-    state->alsa_period_size = 1024;
-
-    // 获取歌曲时长
-    if (state->format_ctx->duration != AV_NOPTS_VALUE) {
-        state->duration_sec = (double)state->format_ctx->duration / AV_TIME_BASE;
-    } else {
-        state->duration_sec = -1.0;
-    }
-
-    // 释放临时通道布局
-    av_channel_layout_uninit(&in_ch_layout);
-
-    return 0;
-}
-
-// 初始化ALSA
-int init_alsa(AudioState *state) {
-    int ret;
+    player->sample_rate = 44100;
+    player->channels    = 2;
 
     // 打开ALSA设备
-    ret = snd_pcm_open(&state->alsa_handle, "default", SND_PCM_STREAM_PLAYBACK, 0);
-    if (ret < 0) {
-        fprintf(stderr, "无法打开PCM设备: %s\n", snd_strerror(ret));
-        return -1;
+    int err;
+    if((err = snd_pcm_open(&player->pcm_handle, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+        fprintf(stderr, "无法打开PCM设备: %s\n", snd_strerror(err));
+        ret = -1;
+        goto cleanup;
     }
 
-    // 设置硬件参数
-    snd_pcm_hw_params_t *hw_params;
+    // 配置PCM参数
+    snd_pcm_hw_params_t * hw_params;
     snd_pcm_hw_params_alloca(&hw_params);
 
-    ret = snd_pcm_hw_params_any(state->alsa_handle, hw_params);
-    if (ret < 0) {
-        fprintf(stderr, "无法初始化硬件参数: %s\n", snd_strerror(ret));
+    snd_pcm_hw_params_any(player->pcm_handle, hw_params);
+    snd_pcm_hw_params_set_access(player->pcm_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    snd_pcm_hw_params_set_format(player->pcm_handle, hw_params, SND_PCM_FORMAT_S16_LE);
+    snd_pcm_hw_params_set_channels(player->pcm_handle, hw_params, player->channels);
+    snd_pcm_hw_params_set_rate_near(player->pcm_handle, hw_params, &player->sample_rate, 0);
+
+    player->frames = 1024;
+    snd_pcm_hw_params_set_period_size_near(player->pcm_handle, hw_params, &player->frames, 0);
+
+    if((err = snd_pcm_hw_params(player->pcm_handle, hw_params)) < 0) {
+        fprintf(stderr, "无法设置硬件参数: %s\n", snd_strerror(err));
+        ret = -1;
+        goto cleanup;
+    }
+
+    player_init_volume_control(player);
+
+    // 获取持续时间
+    AVStream * audio_stream = player->format_ctx->streams[player->audio_stream_index];
+    player->time_base       = audio_stream->time_base;
+    player->duration        = audio_stream->duration; // 使用流的duration而不是format_ctx的
+
+    // 创建播放线程
+    player->state = PLAYER_PAUSED;
+    if(pthread_create(&player->play_thread, NULL, audio_thread_func, player) != 0) {
+        fprintf(stderr, "无法创建播放线程\n");
+        player->state = PLAYER_STOPPED;
+        ret = -1;
+        goto cleanup;
+    }
+
+    pthread_mutex_unlock(&player->mutex);
+    return 0;
+
+cleanup:
+    player_stop(player);
+    pthread_mutex_unlock(&player->mutex);
+    return ret;
+}
+
+int player_init_video(ff_player_t * player, lv_img_t * img)
+{
+    if(!player || !img) return -1;
+
+    int ret            = 0;
+    player->video_area = img;
+    pthread_mutex_lock(&player->mutex);
+
+    // 查找视频流
+    player->video_stream_index = -1;
+    for(int i = 0; i < player->format_ctx->nb_streams; i++) {
+        if(player->format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            player->video_stream_index = i;
+            break;
+        }
+    }
+
+    if(player->video_stream_index == -1) {
+        fprintf(stderr, "未找到视频流\n");
+        ret = -1;
+        goto cleanup;
+    }
+
+    // 获取解码器
+    AVCodecParameters * codecpar = player->format_ctx->streams[player->video_stream_index]->codecpar;
+    const AVCodec * codec        = avcodec_find_decoder(codecpar->codec_id);
+    if(!codec) {
+        fprintf(stderr, "未找到对应的解码器\n");
+        ret = -1;
+        goto cleanup;
+    }
+
+    player->video_codec_ctx = avcodec_alloc_context3(codec);
+    if(!player->video_codec_ctx) {
+        fprintf(stderr, "无法分配解码器上下文\n");
+        ret = -1;
+        goto cleanup;
+    }
+
+    if(avcodec_parameters_to_context(player->video_codec_ctx, codecpar) < 0) {
+        fprintf(stderr, "无法复制编解码器参数到解码器上下文\n");
+        ret = -1;
+        goto cleanup;
+    }
+
+    if(avcodec_open2(player->video_codec_ctx, codec, NULL) < 0) {
+        fprintf(stderr, "无法打开解码器\n");
+        ret = -1;
+        goto cleanup;
+    }
+
+    if(ffmpeg_image_allocate(player) < 0) {
+        LV_LOG_ERROR("ffmpeg image allocate failed");
+        ret = -1;
+        goto cleanup;
+    }
+
+    // 在img_dsc对象里写入图像参数
+    bool has_alpha = ffmpeg_pix_fmt_has_alpha(player->video_codec_ctx->pix_fmt);
+    int width           = player->video_codec_ctx->width;
+    int height           = player->video_codec_ctx->height;
+    player->video_dst_pix_fmt = (has_alpha ? AV_PIX_FMT_BGRA : AV_PIX_FMT_BGR0);
+
+    uint32_t data_size      = 0;
+    if(has_alpha)    data_size = width * height * LV_IMG_PX_SIZE_ALPHA_BYTE;
+    else             data_size = width * height * LV_COLOR_SIZE / 8;
+
+    player->img_dsc.header.always_zero = 0;
+    player->img_dsc.header.w           = width;
+    player->img_dsc.header.h           = height;
+    player->img_dsc.data_size          = data_size;
+    player->img_dsc.header.cf          = has_alpha ? LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR;
+    player->img_dsc.data               = ffmpeg_get_img_data(player);
+
+    lv_img_set_src(&player->video_area->obj, &(player->img_dsc));
+
+    ret = 0;
+
+    pthread_mutex_unlock(&player->mutex);
+    return ret;
+
+cleanup:
+    avcodec_free_context(&player->video_codec_ctx);
+    return ret;
+}
+
+static int ffmpeg_image_allocate(ff_player_t * player)
+{
+    int ret;
+
+    /* allocate image where the decoded image will be put */
+    ret = av_image_alloc(player->video_src_data, player->video_src_linesize, player->video_codec_ctx->width,
+                         player->video_codec_ctx->height, player->video_codec_ctx->pix_fmt, 4);
+
+    if(ret < 0) {
+        LV_LOG_ERROR("Could not allocate src raw video buffer");
+        return ret;
+    }
+
+    LV_LOG_INFO("alloc video_src_bufsize = %d", ret);
+
+    ret = av_image_alloc(player->video_dst_data, player->video_dst_linesize, player->video_codec_ctx->width,
+                         player->video_codec_ctx->height, player->video_dst_pix_fmt, 4);
+
+    if(ret < 0) {
+        LV_LOG_ERROR("Could not allocate dst raw video buffer");
+        return ret;
+    }
+
+    LV_LOG_INFO("allocate video_dst_bufsize = %d", ret);
+
+    player->frame = av_frame_alloc();
+
+    if(player->frame == NULL) {
+        LV_LOG_ERROR("Could not allocate frame");
         return -1;
     }
 
-    ret = snd_pcm_hw_params_set_access(state->alsa_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
-    if (ret < 0) {
-        fprintf(stderr, "无法设置访问类型: %s\n", snd_strerror(ret));
-        return -1;
-    }
-
-    ret = snd_pcm_hw_params_set_format(state->alsa_handle, hw_params, state->alsa_format);
-    if (ret < 0) {
-        fprintf(stderr, "无法设置样本格式: %s\n", snd_strerror(ret));
-        return -1;
-    }
-
-    ret = snd_pcm_hw_params_set_channels(state->alsa_handle, hw_params, state->alsa_channels);
-    if (ret < 0) {
-        fprintf(stderr, "无法设置声道数: %s\n", snd_strerror(ret));
-        return -1;
-    }
-
-    unsigned int sample_rate = state->alsa_sample_rate;
-    ret = snd_pcm_hw_params_set_rate_near(state->alsa_handle, hw_params, &sample_rate, 0);
-    if (ret < 0) {
-        fprintf(stderr, "无法设置采样率: %s\n", snd_strerror(ret));
-        return -1;
-    }
-
-    ret = snd_pcm_hw_params_set_period_size_near(state->alsa_handle, hw_params, &state->alsa_period_size, 0);
-    if (ret < 0) {
-        fprintf(stderr, "无法设置周期大小: %s\n", snd_strerror(ret));
-        return -1;
-    }
-
-    ret = snd_pcm_hw_params(state->alsa_handle, hw_params);
-    if (ret < 0) {
-        fprintf(stderr, "无法设置硬件参数: %s\n", snd_strerror(ret));
-        return -1;
-    }
+    /* initialize packet, set data to NULL, let the demuxer fill it */
+    av_init_packet(&player->pkt);
+    player->pkt.data = NULL;
+    player->pkt.size = 0;
 
     return 0;
 }
 
-// 解码并播放音频（修改版本，添加停止检查）
-void decode_and_play(AudioState *state) {
-    int ret;
+static uint8_t * ffmpeg_get_img_data(ff_player_t * player)
+{
+    uint8_t * img_data = player->video_dst_data[0];
 
-    while (av_read_frame(state->format_ctx, state->pkt) >= 0 && !state->should_stop) {
-        if (state->pkt->stream_index == state->audio_stream_idx) {
-            // 发送包到解码器
-            ret = avcodec_send_packet(state->codec_ctx, state->pkt);
-            if (ret < 0) {
-                fprintf(stderr, "发送包到解码器失败\n");
-                break;
+    if(img_data == NULL) {
+        LV_LOG_ERROR("ffmpeg video dst data is NULL");
+    }
+
+    return img_data;
+}
+
+static bool ffmpeg_pix_fmt_has_alpha(enum AVPixelFormat pix_fmt)
+{
+    const AVPixFmtDescriptor * desc = av_pix_fmt_desc_get(pix_fmt);
+
+    if(desc == NULL) {
+        return false;
+    }
+
+    if(pix_fmt == AV_PIX_FMT_PAL8) {
+        return true;
+    }
+
+    return (desc->flags & AV_PIX_FMT_FLAG_ALPHA) ? true : false;
+}
+
+static void * audio_thread_func(void * arg)
+{
+    ff_player_t * player = (ff_player_t *)arg;
+
+    AVPacket * packet = av_packet_alloc();
+    AVFrame * frame   = av_frame_alloc();
+    if(!packet || !frame) {
+        fprintf(stderr, "无法分配数据包或帧\n");
+        goto cleanup;
+    }
+
+    uint8_t * audio_buffer = malloc(BUFFER_SIZE * player->channels * 2); // S16LE
+    if(!audio_buffer) {
+        fprintf(stderr, "无法分配音频缓冲区\n");
+        goto cleanup;
+    }
+
+    while(player->state != PLAYER_STOPPED) {
+
+        // 检查跳转请求
+        if(player->seek_request) {
+            int64_t seek_target = player->seek_pos;
+            if(av_seek_frame(player->format_ctx, player->audio_stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
+                fprintf(stderr, "跳转失败\n");
+            } else {
+                avcodec_flush_buffers(player->audio_codec_ctx);
+                player->current_pts = seek_target;
+            }
+            player->seek_request = 0;
+        }
+        // 检查暂停状态
+        if(player->state == PLAYER_PAUSED) {
+            usleep(100000); // 100ms
+            continue;
+        }
+
+        int ret = av_read_frame(player->format_ctx, packet);
+        if(ret < 0) {
+            // 文件结束或错误
+            //break;
+            player->state = PLAYER_PAUSED;
+            continue;
+        }
+
+        if(packet->stream_index == player->audio_stream_index) {
+            ret = avcodec_send_packet(player->audio_codec_ctx, packet);
+            if(ret < 0) {
+                av_packet_unref(packet);
+                continue;
             }
 
-            while (ret >= 0 && !state->should_stop) {
-                // 接收解码后的帧
-                ret = avcodec_receive_frame(state->codec_ctx, state->frame);
-                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            while(ret >= 0) {
+                ret = avcodec_receive_frame(player->audio_codec_ctx, frame);
+                if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                     break;
-                } else if (ret < 0) {
+                } else if(ret < 0) {
                     fprintf(stderr, "解码错误\n");
                     break;
                 }
 
+                // 更新当前播放位置
+                player->current_pts = frame->pts;
+
                 // 重采样
-                uint8_t **src_data = state->frame->extended_data;
-                int src_nb_samples = state->frame->nb_samples;
+                uint8_t * out_data[1] = {audio_buffer};
+                int out_samples = swr_convert(player->swr_ctx, out_data, BUFFER_SIZE, (const uint8_t **)frame->data,
+                                              frame->nb_samples);
 
-                // 计算输出样本数
-                int dst_nb_samples = av_rescale_rnd(
-                    swr_get_delay(state->swr_ctx, state->frame->sample_rate) + src_nb_samples,
-                    44100, state->frame->sample_rate, AV_ROUND_UP);
+                if(out_samples > 0) {
+                    int data_size = out_samples * player->channels * 2; // S16LE
 
-                // 分配输出缓冲区
-                uint8_t *dst_data;
-                int dst_linesize;
-                ret = av_samples_alloc(&dst_data, &dst_linesize, 2, dst_nb_samples, AV_SAMPLE_FMT_S16, 0);
-                if (ret < 0) {
-                    fprintf(stderr, "无法分配输出样本\n");
-                    break;
+                    // 写入ALSA设备
+                    snd_pcm_sframes_t frames_written = snd_pcm_writei(player->pcm_handle, audio_buffer, out_samples);
+                    if(frames_written < 0) {
+                        frames_written = snd_pcm_recover(player->pcm_handle, frames_written, 0);
+                    }
+                    if(frames_written < 0) {
+                        fprintf(stderr, "写入PCM设备错误: %s\n", snd_strerror(frames_written));
+                    }
                 }
 
-                // 执行重采样
-                int converted = swr_convert(state->swr_ctx, &dst_data, dst_nb_samples,
-                                         (const uint8_t **)src_data, src_nb_samples);
-                if (converted < 0) {
-                    fprintf(stderr, "重采样失败\n");
-                    av_freep(&dst_data);
-                    break;
-                }
-
-                // 计算实际转换的数据大小
-                int data_size = converted * 2 * 2; // 2声道 * 2字节(16位)
-
-                // 写入ALSA
-                snd_pcm_sframes_t frames = snd_pcm_writei(state->alsa_handle, dst_data, converted);
-                if (frames < 0) {
-                    frames = snd_pcm_recover(state->alsa_handle, frames, 0);
-                }
-                if (frames < 0) {
-                    fprintf(stderr, "写入ALSA失败: %s\n", snd_strerror(frames));
-                }
-
-                // 释放输出缓冲区
-                av_freep(&dst_data);
-                
-                // 添加小的延迟，避免过度占用CPU
-                if (!state->should_stop) {
-                    usleep(1000); // 1ms延迟
-                }
+                av_frame_unref(frame);
             }
         }
-        av_packet_unref(state->pkt);
-        
-        if (state->should_stop) break;
-    }
-}
 
-// 清理资源
-void cleanup(AudioState *state) {
-    if (!state) return;
-    
-    if (state->swr_ctx) swr_free(&state->swr_ctx);
-    if (state->frame) av_frame_free(&state->frame);
-    if (state->pkt) av_packet_free(&state->pkt);
-    if (state->codec_ctx) avcodec_free_context(&state->codec_ctx);
-    if (state->format_ctx) avformat_close_input(&state->format_ctx);
-    if (state->alsa_handle) snd_pcm_close(state->alsa_handle);
-}
+        av_packet_unref(packet);
+    }
 
-// 音频播放线程函数
-static void* audio_play_thread(void* arg) {
-    const char* filename = (const char*)arg;
-    
-    // 分配音频状态
-    g_audio_state = (AudioState*)calloc(1, sizeof(AudioState));
-    if (!g_audio_state) {
-        free(arg);
-        return NULL;
-    }
-    
-    // 初始化FFmpeg
-    if (init_ffmpeg(g_audio_state, filename) < 0) {
-        cleanup(g_audio_state);
-        free(g_audio_state);
-        g_audio_state = NULL;
-        free(arg);
-        return NULL;
-    }
-    
-    // 初始化ALSA
-    if (init_alsa(g_audio_state) < 0) {
-        cleanup(g_audio_state);
-        free(g_audio_state);
-        g_audio_state = NULL;
-        free(arg);
-        return NULL;
-    }
-    
-    g_audio_state->is_playing = 1;
-    g_audio_state->should_stop = 0;
-    
-    // 开始播放
-    decode_and_play(g_audio_state);
-    
-    // 播放完成或停止后的清理
-    g_audio_state->is_playing = 0;
-    cleanup(g_audio_state);
-    free(g_audio_state);
-    g_audio_state = NULL;
-    
-    free(arg);
+cleanup:
+    if(packet) av_packet_free(&packet);
+    if(frame) av_frame_free(&frame);
+    if(audio_buffer) free(audio_buffer);
+
     return NULL;
 }
 
-// 开始播放音频（线程安全）
-int start_audio_playback(const char* filename) {
-    // 如果正在播放，先停止
-    if (g_audio_state && g_audio_state->is_playing) {
-        stop_audio_playback();
-        // 等待线程结束
-        pthread_join(g_audio_state->play_thread, NULL);
-    }
-    
-    char* filename_copy = strdup(filename);
-    if (!filename_copy) {
-        return -1;
-    }
-    
-    pthread_t thread_id;
-    if (pthread_create(&thread_id, NULL, audio_play_thread, filename_copy) == 0) {
-        if (g_audio_state) {
-            g_audio_state->play_thread = thread_id;
-        }
+static void * video_thread_func(void * arg)
+{
+
+}
+
+int player_pause(ff_player_t * player)
+{
+    if(!player) return -1;
+
+    if(player->state == PLAYER_PLAYING) {
+        player->state = PLAYER_PAUSED;
+        snd_pcm_pause(player->pcm_handle, 1);
         return 0;
-    } else {
-        free(filename_copy);
+    }
+    return -1;
+}
+
+int player_resume(ff_player_t * player)
+{
+    if(!player) return -1;
+
+    if(player->state == PLAYER_PAUSED) {
+        player->state = PLAYER_PLAYING;
+        snd_pcm_pause(player->pcm_handle, 0);
+        return 0;
+    }
+    return -1;
+}
+
+int player_stop(ff_player_t * player)
+{
+    if(!player) return -1;
+
+    pthread_mutex_lock(&player->mutex);
+
+    player->state = PLAYER_STOPPED;
+
+    // 等待线程结束
+    if(player->play_thread) {
+        pthread_join(player->play_thread, NULL);
+        player->play_thread = 0;
+    }
+
+    // 清理资源
+    if(player->mixer) {
+        snd_mixer_close(player->mixer);
+        player->mixer = NULL;
+        player->elem  = NULL;
+    }
+
+    if(player->pcm_handle) {
+        snd_pcm_drain(player->pcm_handle);
+        snd_pcm_close(player->pcm_handle);
+        player->pcm_handle = NULL;
+    }
+
+    if(player->swr_ctx) {
+        swr_free(&player->swr_ctx);
+        player->swr_ctx = NULL;
+    }
+
+    if(player->audio_codec_ctx) {
+        avcodec_free_context(&player->audio_codec_ctx);
+        player->audio_codec_ctx = NULL;
+    }
+
+    if(player->format_ctx) {
+        avformat_close_input(&player->format_ctx);
+        player->format_ctx = NULL;
+    }
+
+    pthread_mutex_unlock(&player->mutex);
+    return 0;
+}
+
+//根据百分比跳转
+int player_seek_pct(ff_player_t * player, double percent)
+{
+    int64_t target_pts = (int64_t)(player->duration * percent / 100.0);
+    int64_t now_pts    = player->current_pts;
+
+    printf("now=%lld, duration=%lld\n", now_pts, player->duration);
+
+    if(!player || player->state == PLAYER_STOPPED) return -1;
+    if(target_pts < 0) target_pts = 0;
+    if(target_pts > player->duration) target_pts = player->duration;
+
+    player->seek_pos = target_pts;
+    player->seek_request = 1;
+    return 0;
+
+}
+
+//根据毫秒数跳转
+int player_seek_ms(ff_player_t * player, int64_t target_ms)
+{
+    if(player->state != PLAYER_STOPPED) {
+        int64_t target_pts = target_ms * (AV_TIME_BASE / 1000);
+        int64_t now_pts    = player->current_pts;
+
+        printf("now=%lld, duration=%lld\n", now_pts, player->duration);
+        if(!player || target_pts < 0 || target_pts > player->duration || player->state == PLAYER_STOPPED)
+            return -1;
+        player->seek_pos = target_pts;
+        player->seek_request = 1;
+        return 0;
+    }
+    return -1;
+}
+
+int64_t player_get_position_ms(ff_player_t * player)
+{
+    if(!player || player->duration <= 0) return 0;
+
+    int64_t current = player->current_pts;
+    return current / (AV_TIME_BASE / 1000);
+}
+
+int64_t player_get_duration_ms(ff_player_t * player)
+{
+    if(!player || player->duration <= 0) return 0;
+    return player->duration / (AV_TIME_BASE / 1000);
+}
+
+double player_get_position_pct(ff_player_t * player)
+{
+    if(!player || player->duration <= 0) return 0.0;
+    int64_t current = player->current_pts;
+    return (double)current / player->duration * 100.0;
+}
+
+player_state_t player_get_state(ff_player_t * player)
+{
+    if(!player) return PLAYER_STOPPED;
+    return player->state;
+}
+
+void player_destroy(ff_player_t * player)
+{
+    if(!player) return;
+
+    player_stop(player);
+
+    if(player->filename) {
+        free(player->filename);
+        player->filename = NULL;
+    }
+
+    pthread_mutex_destroy(&player->mutex);
+    free(player);
+}
+
+int player_init_volume_control(ff_player_t * player)
+{
+    int ret;
+    const char * card       = "default";
+    const char * selem_name = "LINEOUT volume";
+
+    if((ret = snd_mixer_open(&player->mixer, 0)) < 0) {
+        goto cleanup;
+    }
+
+    if((ret = snd_mixer_attach(player->mixer, card)) < 0) {
+        fprintf(stderr, "无法附加mixer到卡: %s\n", snd_strerror(ret));
+        goto cleanup;
+    }
+
+    if((ret = snd_mixer_selem_register(player->mixer, NULL, NULL)) < 0) {
+        fprintf(stderr, "无法注册mixer: %s\n", snd_strerror(ret));
+        goto cleanup;
+    }
+
+    if((ret = snd_mixer_load(player->mixer)) < 0) {
+        fprintf(stderr, "无法加载mixer: %s\n", snd_strerror(ret));
+        goto cleanup;
+    }
+
+    // 查找音量控制元素
+    snd_mixer_selem_id_t * sid;
+    snd_mixer_selem_id_alloca(&sid);
+    snd_mixer_selem_id_set_index(sid, 0);
+    snd_mixer_selem_id_set_name(sid, selem_name);
+
+    player->elem = snd_mixer_find_selem(player->mixer, sid);
+    if(!player->elem) {
+        fprintf(stderr, "无法找到音量控制元素 '%s'\n", selem_name);
+        goto cleanup;
+    }
+
+
+    // 获取音量范围
+    snd_mixer_selem_get_playback_volume_range(player->elem, &player->volume_min, &player->volume_max);
+
+    // 获取实际音量并计算百分比
+    long actual_volume;
+    snd_mixer_selem_get_playback_volume(player->elem, 0, &actual_volume);
+    player->volume     = 100 * (actual_volume - player->volume_min) / (player->volume_max - player->volume_min);
+
+    printf("音量: %ld (%ld, %ld-%ld)\n", player->volume, actual_volume, player->volume_min, player->volume_max);
+    return 0;
+
+cleanup:
+    snd_mixer_close(player->mixer);
+    player->mixer = NULL;
+    return -1;
+}
+
+int player_set_volume(ff_player_t * player, int volume)
+{
+    if(!player || !player->elem) return -1;
+
+    if(volume < 0) volume = 0;
+    if(volume > 100) volume = 100;
+
+    player->volume = volume;
+
+    // 将百分比转换为实际音量值
+    long actual_volume = player->volume_min + (volume * (player->volume_max - player->volume_min)) / 100;
+
+    int ret = snd_mixer_selem_set_playback_volume_all(player->elem, actual_volume);
+    if(ret < 0) {
+        fprintf(stderr, "设置音量失败: %s\n", snd_strerror(ret));
         return -1;
     }
+
+    return 0;
 }
 
-// 停止播放音频
-void stop_audio_playback(void) {
-    if (g_audio_state) {
-        g_audio_state->should_stop = 1;
-    }
-}
-
-// 检查是否正在播放
-int is_audio_playing(void) {
-    return (g_audio_state && g_audio_state->is_playing);
-}
-
-// 获取歌曲总时长（秒）
-double get_audio_duration(void) {
-    if (!g_audio_state) {
-        return -1.0;
-    }
-    return g_audio_state->duration_sec;
+int player_get_volume(ff_player_t * player)
+{
+    if(!player) return -1;
+    return player->volume;
 }

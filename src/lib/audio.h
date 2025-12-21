@@ -1,48 +1,93 @@
-// audio.h
-#ifndef AUDIO_H
-#define AUDIO_H
 
+
+#include "lvgl/lvgl.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <stdatomic.h>
+
+// FFmpeg 头文件
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
-#include <alsa/asoundlib.h>
-#include <pthread.h>
+#include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/samplefmt.h>
+#include <libavutil/timestamp.h>
+#include <libswscale/swscale.h>
 
-typedef struct {
-    // FFmpeg相关
-    AVFormatContext *format_ctx;
-    AVCodecContext *codec_ctx;
-    int audio_stream_idx;
-    SwrContext *swr_ctx;
-    AVFrame *frame;
-    AVPacket *pkt;
-    
-    // ALSA相关
-    snd_pcm_t *alsa_handle;
-    snd_pcm_uframes_t alsa_period_size;
-    snd_pcm_format_t alsa_format;
-    unsigned int alsa_channels;
-    unsigned int alsa_sample_rate;
-    
-    // 控制相关
-    int is_playing;
-    int should_stop;
+// ALSA 头文件
+#include <alsa/asoundlib.h>
+
+typedef enum { PLAYER_STOPPED, PLAYER_PLAYING, PLAYER_PAUSED } player_state_t;
+
+typedef struct
+{
+    // FFmpeg 相关
+    AVFormatContext * format_ctx;
+    AVCodecContext * audio_codec_ctx;
+    AVCodecContext * video_codec_ctx;
+    SwrContext * swr_ctx;
+    AVFrame * frame;
+    AVPacket pkt;
+    int audio_stream_index;
+    int video_stream_index;
+
+    // ALSA 相关
+    snd_pcm_t * pcm_handle;
+    snd_pcm_uframes_t frames;
+    unsigned int sample_rate;
+    int channels;
+    snd_mixer_t * mixer;
+    snd_mixer_elem_t * elem;
+    long volume_min, volume_max;
+    int volume; // 0-100
+
+    // 显示相关
+    uint8_t * video_src_data[4];
+    uint8_t * video_dst_data[4];
+    int video_src_linesize[4];
+    int video_dst_linesize[4];
+    enum AVPixelFormat video_dst_pix_fmt;
+    lv_img_t * video_area;
+    lv_img_dsc_t img_dsc;
+
+    // 播放控制
+    volatile int state;
+    volatile int seek_request;
+    volatile int64_t seek_pos;
     pthread_t play_thread;
-    
-    // 新增：歌曲时长信息
-    double duration_sec;  // 歌曲总时长（秒）
-} AudioState;
+    pthread_t video_thread;
+    pthread_mutex_t mutex;
+
+    // 进度信息
+    volatile int64_t current_pts;
+    AVRational time_base;
+    int64_t duration;
+
+    char * filename;
+} ff_player_t;
 
 // 函数声明
-int init_ffmpeg(AudioState *state, const char *filename);
-int init_alsa(AudioState *state);
-void decode_and_play(AudioState *state);
-void cleanup(AudioState *state);
+ff_player_t * player_create();
+int player_open(ff_player_t * player, const char * filename);
+int player_init_audio(ff_player_t * player);
+int player_init_video(ff_player_t * player, lv_img_t * img);
+int player_pause(ff_player_t * player);
+int player_resume(ff_player_t * player);
+int player_stop(ff_player_t * player);
+int player_seek_pct(ff_player_t * player, double percent);
+int player_seek_ms(ff_player_t * player, int64_t target_ms);
+int64_t player_get_position_ms(ff_player_t * player);
+int64_t player_get_duration_ms(ff_player_t * player);
+double player_get_position_pct(ff_player_t * player);
+player_state_t player_get_state(ff_player_t * player);
+void player_destroy(ff_player_t * player);
 
-// 新增控制函数
-int start_audio_playback(const char* filename);
-void stop_audio_playback(void);
-int is_audio_playing(void);
-double get_audio_duration(void);
+// 音量控制
+int player_set_volume(ff_player_t * player, int volume);
+int player_get_volume(ff_player_t * player);
+int player_init_volume_control(ff_player_t * player);
 
-#endif

@@ -1,8 +1,11 @@
+#include "audio.h"  // 添加音频播放器头文件
+#include <string.h>
 #include "./file_manager.h"
 #include "./container.h"
 #include "./events.h"
-lv_obj_t *manager = NULL;  
-lv_obj_t *manager_cont=NULL;
+// 新增：判断是否为音频文件
+
+
 void file_manager(void) {
     manager = lv_menu_create(parent);
     lv_obj_set_size(manager,960,240);
@@ -13,4 +16,5 @@ void file_manager(void) {
     lv_file_explorer_set_sort(fmg, LV_EXPLORER_SORT_KIND);
     lv_obj_set_size(fmg,960,220);
     lv_file_explorer_open_dir(fmg,"A:/");
-  }
+    lv_obj_add_event_cb(fmg, file_select_event, LV_EVENT_VALUE_CHANGED, NULL);
+}

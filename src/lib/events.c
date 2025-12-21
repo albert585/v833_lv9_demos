@@ -35,20 +35,3 @@ void btn_robot_click(lv_event_t * e)
     switchRobot();
 }
 
-// 测试FFmpeg播放 - 简化版本
-void test_ffmpeg(lv_event_t *e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code == LV_EVENT_CLICKED) {
-        start_audio_playback("/mnt/app/neuro.mp4");
-    }
-}
-
-// 停止播放按钮事件
-void stop_audio_playback_ui(lv_event_t *e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code == LV_EVENT_CLICKED) {
-        stop_audio_playback();
-    }
-}
