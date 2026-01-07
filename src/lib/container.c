@@ -6,7 +6,7 @@ lv_obj_t *parent = NULL;  // 实际定义
 void create_container(void) { //创建显示区域
 
 
-    parent = lv_obj_create(lv_screen_active());
+    parent = lv_obj_create(lv_scr_act());
     lv_obj_set_size(parent, 960, 240);
     lv_obj_set_style_bg_color(parent, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_100, 0);

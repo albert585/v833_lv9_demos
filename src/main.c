@@ -10,12 +10,13 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include "lvgl/lvgl.h"
+#include "lv_drivers/display/fbdev.h"
+#include "lv_drivers/indev/evdev.h"
 #include "lib/file_manager.h"
 #include "lib/container.h"
 #include "lib/button.h"
 #include "lib/settings.h"
-lv_display_t * disp = NULL;
-
+#include "lib/player.h"
 
 #define PATH_MAX_LENGTH 256
 char homepath[PATH_MAX_LENGTH] = {0};
@@ -28,8 +29,9 @@ uint32_t homeClickTs = -1;
 uint32_t backgroundTs = -1;
 extern uint32_t custom_tick_get(void);
 bool deepsleep  = false;
+
 #include "./main.h"
-//设置屏幕与输入设备
+
 const char *getenv_default(const char *name, const char *default_val)
 {
     const char* value = getenv(name);
@@ -38,18 +40,30 @@ const char *getenv_default(const char *name, const char *default_val)
 
 static void lv_linux_disp_init(void)
 {
-    const char *device = getenv_default("LV_LINUX_FBDEV_DEVICE", "/dev/fb0");
-    disp= lv_linux_fbdev_create();
-    lv_linux_fbdev_set_file(disp, device);
+    static lv_color_t buf[240 * 240];
+    static lv_disp_draw_buf_t disp_buf;
+    
+    fbdev_init();
+    lv_disp_draw_buf_init(&disp_buf, buf, NULL, 240 * 240);
+    
+    static lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.draw_buf   = &disp_buf;
+    disp_drv.flush_cb   = fbdev_flush;
+    disp_drv.hor_res    = 480;
+    disp_drv.ver_res    = 960;
+    lv_disp_drv_register(&disp_drv);
 }
 
-static void lv_linux_touch_init(){
-    lv_indev_t *touch = lv_evdev_create(LV_INDEV_TYPE_POINTER, "/dev/input/event0");
-    lv_indev_set_display(touch, disp);
-    lv_evdev_set_calibration(touch,-40,940,310,25);
+static void lv_linux_touch_init(void)
+{
+    evdev_init();
+    static lv_indev_drv_t indev_drv;
+    lv_indev_drv_init(&indev_drv);
+    indev_drv.type = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = evdev_read;
+    lv_indev_drv_register(&indev_drv);
 }
-
-
 
 void readKeyHome(void) {
         char buffer[16] = {0};
@@ -178,14 +192,14 @@ int main()
   lv_init();
   lv_linux_disp_init();
   printf("display OK!\n");
-  lv_display_set_rotation(disp,LV_DISPLAY_ROTATION_90);
+  // lv_disp_set_rotation(disp, LV_DISP_ROT_90);  // LVGL 8.x 中可能不支持
   lv_linux_touch_init();
   printf("init OK\n");
   /*Initialize LVGL*/
   
 
 
-  lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x808080), 0);
+  lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x808080), 0);
 
   create_container();
 

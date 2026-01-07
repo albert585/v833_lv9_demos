@@ -21,6 +21,7 @@ int dispd = 0 ;
 unsigned int arg[3];
 unsigned int bl;
 extern void backlight_slider(void);
+
 void settings(void){
     setting = lv_menu_create(parent);
     subpage = lv_menu_page_create(setting,NULL);
@@ -30,7 +31,6 @@ void settings(void){
     lv_obj_set_size(setting,960,240);
     lv_obj_center(subpage);
     lv_obj_center(setting);
-    lv_menu_set_mode_root_back_button(setting,LV_MENU_ROOT_BACK_BUTTON_ENABLED);
     lv_obj_add_event_cb(setting,event_close_manager,LV_EVENT_CLICKED,setting);
     lv_obj_t * mainpage = lv_menu_page_create(setting, NULL);
 
@@ -47,9 +47,6 @@ void settings(void){
     lv_menu_set_page(setting,mainpage);
 }
 
-    
-
-
 void backlight_slider(void)
 {
     dispd = open("/dev/disp", O_RDWR);
@@ -59,20 +56,25 @@ void backlight_slider(void)
     lv_obj_center(slider);
     lv_obj_add_event_cb(slider, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     lv_slider_set_value(slider,bl,LV_ANIM_OFF);
-    lv_slider_set_range(slider, 255, 0); //反了
-    lv_obj_set_style_anim_duration(slider, 2000, 0);
-    /*Create a label below the slider*/
+    lv_slider_set_range(slider, 255, 0);
     lv_obj_center(slider);
 }
-
 
 void slider_event_cb(lv_event_t * e)
 {
     lv_obj_t * slider = lv_event_get_target(e);
     bl = (unsigned int)lv_slider_get_value(slider);
-    arg[0] = 0;  // 显示通道
-    arg[1] = bl; // 亮度值
-    ioctl(dispd, 0x102u, arg);
+    arg[0] = 0;
+    arg[1] = bl;
+    if (dispd >= 0) {
+        ioctl(dispd, 0x102u, arg);
+    }
+}
 
-
+void settings_close(void)
+{
+    if (dispd >= 0) {
+        close(dispd);
+        dispd = -1;
+    }
 }
