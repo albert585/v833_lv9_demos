@@ -51,7 +51,7 @@ static void update_time_label(player_t *player) {
 }
 
 static void timer_callback(lv_timer_t *timer) {
-    player_t *player = timer->user_data;
+    player_t *player = (player_t *)lv_timer_get_user_data(timer);
     if (!player || !player->audio) return;
 
     if (player->state == PLAYER_STATE_PLAYING) {

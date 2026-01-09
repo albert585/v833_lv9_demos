@@ -1,6 +1,6 @@
 #include "audio.h"
 #include <pthread.h>
-#include <alsa/asoundlib.h>
+#include <libavdevice/avdevice.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -8,7 +8,7 @@
 static pthread_t audio_thread;
 static volatile int is_playing = 0;
 static volatile int is_paused = 0;
-static snd_pcm_t *pcm_handle;
+static AVFormatContext *out_fmt_ctx = NULL;
 
 static void *audio_playback_thread(void *arg) {
     audio_player_t *player = (audio_player_t *)arg;
@@ -68,8 +68,21 @@ static void *audio_playback_thread(void *arg) {
                 (const uint8_t **)player->frame->data, player->frame->nb_samples
             );
 
-            // 写入音频设备
-            snd_pcm_writei(pcm_handle, audio_buf, out_samples);
+            // 使用 avdevice 输出音频
+            if (out_fmt_ctx) {
+                AVPacket *out_pkt = av_packet_alloc();
+                if (out_pkt) {
+                    out_pkt->data = audio_buf;
+                    out_pkt->size = out_samples * 2 * 2; // 16位双通道
+                    out_pkt->stream_index = 0;
+                    out_pkt->pts = player->frame->pts;
+                    out_pkt->dts = player->frame->pkt_dts;
+                    out_pkt->duration = player->frame->duration;
+                    
+                    av_interleaved_write_frame(out_fmt_ctx, out_pkt);
+                    av_packet_free(&out_pkt);
+                }
+            }
             av_frame_unref(player->frame);
         }
         av_packet_unref(player->pkt);
@@ -88,107 +101,57 @@ audio_player_t *audio_player_init(lv_obj_t *volume_slider) {
     player->volume_max = 100;
     player->playback_speed = 1.0f;
 
-    printf("[audio] Initializing audio player...\n");
+    printf("[audio] Initializing audio player with avdevice...\n");
 
-    int ret;
-    unsigned int rate = 44100;
-    int dir = 0;
-    snd_pcm_hw_params_t *hw_params;
-    snd_pcm_sw_params_t *sw_params;
+    // 初始化 avdevice
+    avdevice_register_all();
 
-    // 打开 PCM 设备（使用非阻塞模式，避免在单核环境下阻塞）
-    printf("[audio] Opening PCM device default (non-blocking)...\n");
-    ret = snd_pcm_open(&pcm_handle, "default", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
-    if (ret < 0) {
-        printf("[audio] Error opening PCM device: %s\n", snd_strerror(ret));
-        if (ret == -EBUSY) {
-            printf("[audio] Device is busy, may be occupied by another process\n");
-        } else if (ret == -EINVAL) {
-            printf("[audio] Invalid parameters or device name\n");
+    // 打开 ALSA 输出设备
+    int ret = avformat_alloc_output_context2(&out_fmt_ctx, NULL, "alsa", "default");
+    if (ret < 0 || !out_fmt_ctx) {
+        printf("[audio] Error creating output context: %s\n", av_err2str(ret));
+        free(player);
+        return NULL;
+    }
+
+    // 设置音频参数
+    AVStream *out_stream = avformat_new_stream(out_fmt_ctx, NULL);
+    if (!out_stream) {
+        printf("[audio] Error creating output stream\n");
+        avformat_free_context(out_fmt_ctx);
+        free(player);
+        return NULL;
+    }
+
+    AVCodecParameters *codecpar = out_stream->codecpar;
+    codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+    codecpar->codec_id = AV_CODEC_ID_PCM_S16LE;
+    codecpar->sample_rate = 44100;
+    codecpar->ch_layout = (AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO;
+    codecpar->format = AV_SAMPLE_FMT_S16;
+
+    // 打开输出设备
+    if (!(out_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&out_fmt_ctx->pb, out_fmt_ctx->url, AVIO_FLAG_WRITE);
+        if (ret < 0) {
+            printf("[audio] Error opening output device: %s\n", av_err2str(ret));
+            avformat_free_context(out_fmt_ctx);
+            free(player);
+            return NULL;
         }
-        free(player);
-        return NULL;
     }
-    printf("[audio] PCM device opened successfully\n");
 
-    // 切换回阻塞模式（用于后续的 snd_pcm_writei 调用）
-    ret = snd_pcm_nonblock(pcm_handle, 0);
+    // 写入头信息
+    ret = avformat_write_header(out_fmt_ctx, NULL);
     if (ret < 0) {
-        printf("[audio] Warning: Failed to set blocking mode: %s\n", snd_strerror(ret));
-    }
-    if (ret < 0) {
-        printf("[audio] Error opening PCM device: %s\n", snd_strerror(ret));
-        if (ret == -EBUSY) {
-            printf("[audio] Device is busy, may be occupied by another process\n");
-        } else if (ret == -EINVAL) {
-            printf("[audio] Invalid parameters or device name\n");
-        }
-        free(player);
-        return NULL;
-    }
-    printf("[audio] PCM device opened successfully\n");
-
-    // 分配硬件参数结构
-    snd_pcm_hw_params_alloca(&hw_params);
-
-    // 初始化硬件参数
-    printf("[audio] Initializing hardware parameters...\n");
-    ret = snd_pcm_hw_params_any(pcm_handle, hw_params);
-    if (ret < 0) {
-        printf("[audio] Error initializing hardware parameters: %s\n", snd_strerror(ret));
-        snd_pcm_close(pcm_handle);
+        printf("[audio] Error writing header: %s\n", av_err2str(ret));
+        avio_closep(&out_fmt_ctx->pb);
+        avformat_free_context(out_fmt_ctx);
         free(player);
         return NULL;
     }
 
-    // 设置访问模式
-    ret = snd_pcm_hw_params_set_access(pcm_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
-    if (ret < 0) {
-        printf("[audio] Error setting access type: %s\n", snd_strerror(ret));
-        snd_pcm_close(pcm_handle);
-        free(player);
-        return NULL;
-    }
-
-    // 设置采样格式
-    ret = snd_pcm_hw_params_set_format(pcm_handle, hw_params, SND_PCM_FORMAT_S16_LE);
-    if (ret < 0) {
-        printf("[audio] Error setting sample format: %s\n", snd_strerror(ret));
-        snd_pcm_close(pcm_handle);
-        free(player);
-        return NULL;
-    }
-
-    // 设置通道数
-    ret = snd_pcm_hw_params_set_channels(pcm_handle, hw_params, 2);
-    if (ret < 0) {
-        printf("[audio] Error setting channel count: %s\n", snd_strerror(ret));
-        snd_pcm_close(pcm_handle);
-        free(player);
-        return NULL;
-    }
-
-    // 设置采样率
-    ret = snd_pcm_hw_params_set_rate_near(pcm_handle, hw_params, &rate, &dir);
-    if (ret < 0) {
-        printf("[audio] Error setting sample rate: %s\n", snd_strerror(ret));
-        snd_pcm_close(pcm_handle);
-        free(player);
-        return NULL;
-    }
-    printf("[audio] Sample rate set to %u Hz\n", rate);
-
-    // 应用硬件参数
-    printf("[audio] Applying hardware parameters...\n");
-    ret = snd_pcm_hw_params(pcm_handle, hw_params);
-    if (ret < 0) {
-        printf("[audio] Error setting hardware parameters: %s\n", snd_strerror(ret));
-        snd_pcm_close(pcm_handle);
-        free(player);
-        return NULL;
-    }
-
-    printf("[audio] Audio player initialized successfully\n");
+    printf("[audio] Audio player initialized successfully with avdevice\n");
     return player;
 }
 
@@ -228,6 +191,58 @@ int audio_player_open(audio_player_t *player, const char *file_path) {
     player->frame = av_frame_alloc();
     player->pkt = av_packet_alloc();
 
+    // 重新初始化输出设备
+    if (out_fmt_ctx) {
+        av_write_trailer(out_fmt_ctx);
+        if (!(out_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+            avio_closep(&out_fmt_ctx->pb);
+        }
+        avformat_free_context(out_fmt_ctx);
+        out_fmt_ctx = NULL;
+    }
+
+    int ret = avformat_alloc_output_context2(&out_fmt_ctx, NULL, "alsa", "default");
+    if (ret < 0 || !out_fmt_ctx) {
+        printf("[audio] Error creating output context: %s\n", av_err2str(ret));
+        return -1;
+    }
+
+    AVStream *out_stream = avformat_new_stream(out_fmt_ctx, NULL);
+    if (!out_stream) {
+        printf("[audio] Error creating output stream\n");
+        avformat_free_context(out_fmt_ctx);
+        out_fmt_ctx = NULL;
+        return -1;
+    }
+
+    AVCodecParameters *codecpar = out_stream->codecpar;
+    codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+    codecpar->codec_id = AV_CODEC_ID_PCM_S16LE;
+    codecpar->sample_rate = 44100;
+    codecpar->ch_layout = (AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO;
+    codecpar->format = AV_SAMPLE_FMT_S16;
+
+    // 打开输出设备
+    if (!(out_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&out_fmt_ctx->pb, out_fmt_ctx->url, AVIO_FLAG_WRITE);
+        if (ret < 0) {
+            printf("[audio] Error opening output device: %s\n", av_err2str(ret));
+            avformat_free_context(out_fmt_ctx);
+            out_fmt_ctx = NULL;
+            return -1;
+        }
+    }
+
+    // 写入头信息
+    ret = avformat_write_header(out_fmt_ctx, NULL);
+    if (ret < 0) {
+        printf("[audio] Error writing header: %s\n", av_err2str(ret));
+        avio_closep(&out_fmt_ctx->pb);
+        avformat_free_context(out_fmt_ctx);
+        out_fmt_ctx = NULL;
+        return -1;
+    }
+
     return 0;
 }
 
@@ -256,25 +271,19 @@ void audio_player_stop(audio_player_t *player) {
     }
     if (player->pkt) av_packet_unref(player->pkt);
     if (player->frame) av_frame_unref(player->frame);
+    
+    // 刷新输出缓冲区
+    if (out_fmt_ctx) {
+        av_write_trailer(out_fmt_ctx);
+    }
 }
 
 void audio_player_set_volume(audio_player_t *player, int volume) {
     player->volume = LV_CLAMP(player->volume_min, volume, player->volume_max);
-    snd_mixer_t *mixer;
-    snd_mixer_selem_id_t *sid;
-    snd_mixer_open(&mixer, 0);
-    snd_mixer_attach(mixer, "default");
-    snd_mixer_selem_register(mixer, NULL, NULL);
-    snd_mixer_load(mixer);
     
-    snd_mixer_selem_id_alloca(&sid);
-    snd_mixer_selem_id_set_name(sid, "Master");
-    snd_mixer_elem_t *elem = snd_mixer_find_selem(mixer, sid);
-    
-    long min, max;
-    snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
-    snd_mixer_selem_set_playback_volume_all(elem, min + (max - min) * player->volume / 100);
-    snd_mixer_close(mixer);
+    // avdevice 可能支持音量控制，但需要具体设备支持
+    // 这里暂时保持音量值，实际音量控制可能需要通过硬件特性实现
+    // 如果设备支持，可以使用 AVDictionary 设置音量参数
     
     if (player->volume_slider) {
         lv_slider_set_value(player->volume_slider, player->volume, LV_ANIM_ON);
@@ -315,6 +324,16 @@ void audio_player_deinit(audio_player_t *player) {
     if (player->fmt_ctx) avformat_close_input(&player->fmt_ctx);
     if (player->frame) av_frame_free(&player->frame);
     if (player->pkt) av_packet_free(&player->pkt);
-    snd_pcm_close(pcm_handle);
+    
+    // 清理 avdevice 输出
+    if (out_fmt_ctx) {
+        av_write_trailer(out_fmt_ctx);
+        if (!(out_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+            avio_closep(&out_fmt_ctx->pb);
+        }
+        avformat_free_context(out_fmt_ctx);
+        out_fmt_ctx = NULL;
+    }
+    
     free(player);
 }

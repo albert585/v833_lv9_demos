@@ -2,8 +2,4 @@
 [submodule "lvgl"]
 	path = lvgl
 	url = https://github.com/lvgl/lvgl
-	branch = release/v8.4
-[submodule "lv_drivers"]
-	path = lv_drivers
-	url = https://gitee.com/FlyerLVGL/lv_drivers/
-	branch = release/v8.3
+	branch = release/v9.4

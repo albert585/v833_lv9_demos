@@ -6,14 +6,20 @@
 - **目标平台**: 全志 V833 主控芯片
 - **操作系统**: Tina Linux
 - **Git 仓库**: https://github.com/albert585/v833_lv9_demos
-- **LVGL 版本**: 8.4.0（作为 Git 子模块）
+- **LVGL 版本**: 9.4.0（作为 Git 子模块）
 
 ## 项目概述
 
-这是一个基于全志 V833 主控芯片的 LVGL 图形界面演示项目，运行在 Tina Linux 系统上。项目使用 LVGL 8.4.0 版本构建图形界面，并集成了音频播放、文件管理、设置、视觉小说引擎等功能模块。
+这是一个基于全志 V833 主控芯片的 LVGL 图形界面演示项目，运行在 Tina Linux 系统上。项目已从 LVGL 8.4.0 升级到 9.4.0 版本，构建图形界面，并集成了音频播放、文件管理、设置、视觉小说引擎等功能模块。
+
+**重要变更**:
+- LVGL 版本从 8.4.0 升级到 9.4.0
+- 移除了独立的 lv_drivers 子模块，驱动配置已集成到 lv_conf.h 中
+- 视觉小说引擎已适配 LVGL 9.x API
+- 部分代码可能需要进一步适配 LVGL 9.x 的 API 变更
 
 ### 主要技术栈
-- **GUI 框架**: LVGL 8.4.0（作为 Git 子模块）
+- **GUI 框架**: LVGL 9.4.0（作为 Git 子模块）
 - **构建系统**: CMake 3.10+
 - **编程语言**: C (C99 标准), C++ (C17 标准)
 - **目标平台**: ARM Linux (arm-unknown-linux-musleabihf)
@@ -46,6 +52,16 @@
 - 通过 `event_close_visual_novel` 事件关闭，释放资源并显示主容器
 - 使用 JSON 配置文件（`src/lib/virsual_novel/data/story.json`）定义故事内容
 - 支持网络图片资源，实现动态内容加载
+- 基于 LVGL 9.4.0 构建，支持最新的 LVGL API
+
+### LVGL 9.x 升级说明
+项目已从 LVGL 8.4.0 升级到 9.4.0，主要变更包括：
+- **驱动配置集成**: lv_drv_conf.h 已移除，所有驱动配置现在集成到 lv_conf.h 中
+- **API 变更**: LVGL 9.x 对 API 进行了大量重构，部分函数和结构体名称已改变
+- **渲染引擎**: 默认使用软件渲染（LV_USE_DRAW_SW），性能优化
+- **配置格式**: lv_conf.h 的配置格式与 8.x 版本有较大差异
+- **兼容性**: 视觉小说引擎已适配 LVGL 9.x API，但其他模块可能需要进一步适配
+- **子模块变更**: lv_drivers 不再作为独立子模块存在
 
 ## 项目结构
 
@@ -73,7 +89,6 @@ v833_lv9_demos/
 │           │   └── story.json          # 故事配置文件
 │           └── README.md               # 引擎说明文档
 ├── lvgl/                    # LVGL 源码（Git 子模块）
-├── lv_drivers/              # LVGL 驱动（Git 子模块）
 ├── config/                  # 不同设备的配置文件
 │   ├── t01pro/             # T01Pro 设备配置
 │   └── t3/                 # T3 设备配置
@@ -86,7 +101,8 @@ v833_lv9_demos/
 ├── CMakeLists.txt           # CMake 构建配置
 ├── user_cross_compile_setup.cmake  # 交叉编译工具链配置
 ├── lv_conf.h               # LVGL 配置文件
-├── lv_drv_conf.h           # LVGL 驱动配置文件
+├── lv_conf.h.v8            # LVGL 8.x 配置备份
+├── lv_conf.h.backup        # LVGL 配置备份
 ├── Makefile                # Makefile 构建配置
 ├── test_ffmpeg_simple.c    # FFmpeg 最小测试程序
 ├── test_ffmpeg_alsa.c      # FFmpeg + ALSA 集成测试程序
@@ -127,9 +143,7 @@ v833_lv9_demos/
 ### 构建目标
 - `lvglsim`: 主可执行文件，位于 `build/bin/` 目录
 - `lvgl_linux`: 静态库（包含自定义 LVGL 扩展）
-- `lvgl`: LVGL 核心库
-- `lvgl_examples`: LVGL 示例库
-- `lvgl_demos`: LVGL 演示库
+- `lvgl`: LVGL 9.4.0 核心库
 - `test_ffmpeg_simple`: FFmpeg 最小测试程序（不依赖 ALSA）
 - `test_ffmpeg_alsa`: FFmpeg + ALSA 集成测试程序
 - `test_audio_direct`: 音频直接测试程序
@@ -145,7 +159,7 @@ make -C build clean
 ## 视觉小说引擎
 
 ### 概述
-视觉小说引擎是基于 LVGL 8.4.0 构建的独立模块，通过 JSON 配置文件管理图片路径和文字内容，实现灵活的视觉小说制作与展示。
+视觉小说引擎是基于 LVGL 9.4.0 构建的独立模块，通过 JSON 配置文件管理图片路径和文字内容，实现灵活的视觉小说制作与展示。
 
 ### 主要功能
 - **JSON 配置驱动**: 通过 JSON 文件定义每页的背景图、角色图、文字内容、文本框样式等
@@ -311,22 +325,17 @@ event_close_visual_novel(e);
 ## 配置文件
 
 ### LVGL 配置 (lv_conf.h)
-- 颜色深度: 32-bit (ARGB8888)
+- 颜色深度: 32-bit (XRGB8888)
 - 内存池大小: 5MB
-- 默认字体: Montserrat 14
-- 支持的 LVGL 组件: 大部分基础组件已启用
-- 渲染引擎: 软件渲染 (LV_USE_DRAW_SW)
-- 操作系统: LV_OS_NONE（无操作系统支持）
+- 标准库包装: 使用 LVGL 内置实现（LV_STDLIB_BUILTIN）
+- 默认刷新率: 33ms
+- 默认 DPI: 130
+- 渲染引擎: 软件渲染（LV_USE_DRAW_SW）
 - 文本编码: UTF-8
-- 字符集: ASCII（支持阿拉伯语/波斯语处理可选）
-- 双向文本: 禁用（LV_USE_BIDI = 0）
+- 支持的 LVGL 组件: 大部分基础组件已启用
 - FFmpeg 支持: 已启用（LV_USE_FFMPEG = 1）
 - 文件系统: POSIX 文件系统支持已启用（LV_USE_FS_POSIX = 1）
-
-### LVGL 驱动配置 (lv_drv_conf.h)
-- **FBDEV**: 已启用（USE_FBDEV = 1），设备路径 `/dev/fb0`
-- **EVDEV**: 已启用（USE_EVDEV = 1），设备路径 `/dev/input/event0`
-- 其他驱动（SDL、DRM、libinput 等）均未启用
+- 注意: LVGL 9.x 不再使用 lv_drv_conf.h，驱动配置已集成到主配置文件中
 
 ### 可选后端支持
 CMakeLists.txt 支持多种后端（通过 CONFIG_LV_USE_* 宏控制）：
@@ -425,8 +434,9 @@ git push
 8. **电源管理**: 深睡眠模式需要 RTC 唤醒支持，写入 `/sys/class/rtc/rtc0/wakealarm`
 9. **内存限制**: LVGL 内存池大小为 5MB，注意内存使用
 10. **编译警告**: 项目使用严格编译选项（-Wall -Wextra -Wpedantic），确保代码质量
-11. **LVGL 版本**: 当前使用 LVGL 8.4.0，注意 API 兼容性
-12. **颜色深度**: 使用 32-bit 颜色深度（ARGB8888），而非 16-bit
+11. **LVGL 版本**: 当前使用 LVGL 9.4.0，注意 API 兼容性（与 8.x 版本有重大变更）
+12. **颜色深度**: 使用 32-bit 颜色深度（XRGB8888）
+13. **驱动配置**: LVGL 9.x 不再使用独立的 lv_drv_conf.h，驱动配置已集成到 lv_conf.h 中
 
 ## 已知问题
 
@@ -435,6 +445,7 @@ git push
 - 文件选择事件处理逻辑（file_select_event）中的 TODO 尚未完成
 - 字体加载功能尚未完全实现，当前使用 LVGL 默认字体
 - 显示旋转功能在代码注释中提及但未实际启用
+- LVGL 9.x API 与 8.x 有重大变更，部分代码可能需要适配
 
 ## 未来计划
 
@@ -443,6 +454,7 @@ git push
 - 实现视觉小说引擎的存档/读档功能
 - 添加音效支持
 - 优化内存使用
+- 适配 LVGL 9.x API 变更
 
 ### 中期目标
 - 实现视觉小说引擎的选择分支功能
@@ -450,12 +462,14 @@ git push
 - 实现多语言支持
 - 优化图片加载性能
 - 启用显示旋转功能
+- 利用 LVGL 9.x 新特性优化渲染性能
 
 ### 长期目标
 - 添加视频播放支持
 - 实现网络流媒体播放
 - 添加更多 UI 组件和主题
 - 支持更多硬件平台
+- 升级到 LVGL 9.x 最新版本
 
 ## 贡献指南
 

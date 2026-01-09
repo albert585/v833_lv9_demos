@@ -17,8 +17,10 @@ set(CMAKE_CXX_STANDARD 17) #c17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -I/srv/alsa/include  -I/srv/ffmpeg/include -I/srv/zlib-armv7/include")
-set(CMAKE_EXE_LINKER_FLAGS "-L/srv/evdev/lib -L/srv/openssl/lib  -L/srv/zlib/lib/ -L/srv/ffmpeg/lib -L/srv/alsa/lib -static-libgcc -static-libstdc++ -lssl -lcrypto -lavcodec -lavutil -lavformat -lswscale  -lswresample -lm -lz -lpthread -lasound -Wl,-Bstatic -levdev ")
+set(CMAKE_EXE_LINKER_FLAGS "-L/srv/evdev/lib -L/srv/openssl/lib  -L/srv/zlib/lib/ -L/srv/ffmpeg/lib -L/srv/alsa/lib -static-libgcc -static-libstdc++ -lssl -lcrypto -lavcodec -lavutil -lavformat -lswscale  -lswresample -lavdevice
+ -lm -lz -lpthread -lasound -Wl,-Bstatic -levdev ")
 
+set(LV_CONF_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lv_conf.h CACHE STRING "" FORCE)
 set(LV_BUILD_SET_CONFIG_OPTS ON CACHE BOOL
     "create CMAKE variables from lv_conf_internal.h" FORCE)
 
@@ -160,7 +162,7 @@ add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 
 # If LVGL is configured to use LV_CONF_PATH or Kconfig
 # Set the exactly the same definitions on the lvgl_linux target
-set_target_properties(lvgl_linux PROPERTIES COMPILE_DEFINITIONS "${LVGL_COMPILER_DEFINES}")
+set_target_properties(lvgl_linux PROPERTIES COMPILE_DEFINITIONS "${LVGL_COMPILER_DEFINITIONS}")
 target_include_directories(lvgl_linux PUBLIC
     ${LV_LINUX_INC} ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/lib ${LVGL_CONF_INC_DIR})

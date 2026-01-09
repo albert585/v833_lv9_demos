@@ -22,7 +22,10 @@ unsigned int arg[3];
 unsigned int bl;
 extern void backlight_slider(void);
 
-void settings(void){
+void settings(void)
+
+{
+
     setting = lv_menu_create(parent);
     subpage = lv_menu_page_create(setting,NULL);
     lv_obj_t *line;

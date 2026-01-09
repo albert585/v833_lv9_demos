@@ -72,17 +72,7 @@ visual_novel/
 - LVGL 9.2
 - 标准C库
 
-### 编译命令
 
-```bash
-gcc -o visual_novel main.c visual_novel_engine.c resource_manager.c data_parser.c -I/path/to/lvgl/include -L/path/to/lvgl/lib -llvgl
-```
-
-### 运行
-
-```bash
-./visual_novel
-```
 
 ## 使用说明
 
@@ -97,9 +87,3 @@ gcc -o visual_novel main.c visual_novel_engine.c resource_manager.c data_parser.
 - 图片资源支持本地文件路径和网络URL
 - 字体加载功能尚未完全实现，当前使用LVGL默认字体
 
-## 扩展功能（待实现）
-
-- 多语言支持
-- 音效支持
-- 选择分支功能
-- 动画效果
