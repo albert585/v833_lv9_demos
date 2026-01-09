@@ -64,3 +64,10 @@ void player_destroy_callback(player_t *player)
     (void)player; // 避免未使用参数警告
 }
 
+void event_audio_test(lv_event_t * e)
+{
+    (void)e; // 避免未使用参数警告
+    // 音频测试功能
+    printf("Audio test button clicked\n");
+}
+

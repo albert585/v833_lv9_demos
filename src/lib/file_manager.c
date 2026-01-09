@@ -19,7 +19,4 @@ void file_manager(void)
     lv_obj_center(manager);
 
     lv_obj_add_event_cb(manager, event_close_manager, LV_EVENT_CLICKED, manager);
-
-    strcpy(current_path, "/mnt/app");
-    refresh_file_list(current_path);
 }

@@ -32,7 +32,7 @@ extern uint32_t backgroundTs = -1;
 extern uint32_t custom_tick_get(void);
 extern uint32_t tick_get(void);
 
-extern bool deepsleep  = false;
+extern bool deepSleep  = false;
 extern bool dontDeepSleep  = false;
 
 
@@ -92,7 +92,7 @@ void readKeyPower(void) {
         }
 }
 void sysSleep(void){
-        deepsleep = false;
+        deepSleep = false;
         sleepTs = custom_tick_get();
         touchClose();   
         lcdClose();
@@ -163,7 +163,7 @@ void sysDeepSleep(void){
 }
 
 void sysWake(void){
-        deepsleep = false;
+        deepSleep = false;
         sleepTs = -1;
         touchOpen();
     lcdOpen();
@@ -172,8 +172,9 @@ void setDontDeepSleep(bool b){
     dontDeepSleep = b;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+  bool isDaemonMode = false;
   system("killall robotd");
   system("killall robot_run_1");
     for (uint32_t i = 0; i < argc; i++)
