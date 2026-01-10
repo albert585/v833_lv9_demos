@@ -1030,6 +1030,10 @@
      *  You won't be able to open URLs after enabling this feature.
      *  Note that FFmpeg image decoder will always use lvgl file system. */
     #define LV_FFMPEG_PLAYER_USE_LV_FS 0
+    /** Enable audio support in FFmpeg player
+     *  Set to 1 to enable audio decoding and playback support in video player
+     *  Set to 0 to disable audio support (saves memory and CPU) */
+    #define LV_FFMPEG_AUDIO_SUPPORT 0
 #endif
 
 /*==================

@@ -29,7 +29,9 @@
 - **加密库**: OpenSSL
 
 ### 核心功能模块
-- **多媒体播放器**: 支持音频文件播放、进度控制、音量调节、播放速度控制，基于 FFmpeg 和 ALSA
+- **多媒体播放器**: 
+  - 音频播放：支持音频文件播放、进度控制、音量调节、播放速度控制，基于 FFmpeg 和 ALSA
+  - 视频播放：支持视频文件播放，可选视频+音频同步播放功能（通过 LV_FFMPEG_AUDIO_SUPPORT 配置）
 - **文件管理器**: 浏览和管理文件系统，支持文件选择事件
 - **设置界面**: 系统配置和参数调整
 - **视觉小说引擎**: 基于 JSON 配置的视觉小说系统，支持背景图、角色图、文本框等多媒体元素，支持网络图片资源
@@ -62,6 +64,7 @@
 - **配置格式**: lv_conf.h 的配置格式与 8.x 版本有较大差异
 - **兼容性**: 视觉小说引擎已适配 LVGL 9.x API，但其他模块可能需要进一步适配
 - **子模块变更**: lv_drivers 不再作为独立子模块存在
+- **视频+音频同步播放**: 新增视频播放器音频支持功能，可通过 `LV_FFMPEG_AUDIO_SUPPORT` 配置启用
 
 ## 项目结构
 
@@ -250,6 +253,7 @@ event_close_visual_novel(e);
 - **audio**: 封装 FFmpeg 音频解码和 ALSA 播放功能，支持播放速度控制
   - API: `audio_player_init`, `audio_player_open`, `audio_player_play`, `audio_player_pause`, `audio_player_stop`, `audio_player_set_volume`, `audio_player_set_position`, `audio_player_set_speed`, `audio_player_deinit`
   - 额外 API: `audio_player_get_position`, `audio_player_get_duration`
+  - 使用 avdevice (ALSA) 进行音频输出
 - **player**: 基于 audio 模块构建的高级播放器 UI 组件，包含进度条、音量控制等
   - API: `player_create`, `player_set_file`, `player_toggle_play_pause`, `player_stop`, `player_get_state`, `player_get_position_pct`, `player_destroy`
   - 额外 API: `player_preinit_alsa`, `player_destroy_callback`
@@ -262,6 +266,11 @@ event_close_visual_novel(e);
   - **data_parser**: JSON 配置文件解析
   - **cJSON**: JSON 解析库
   - **simple_json**: 简单 JSON 实现
+- **lv_ffmpeg** (LVGL 扩展): 视频播放器组件，支持可选的音频同步播放
+  - API: `lv_ffmpeg_player_create`, `lv_ffmpeg_player_set_src`, `lv_ffmpeg_player_set_cmd`, `lv_ffmpeg_player_set_auto_restart`
+  - 音频控制 API: `lv_ffmpeg_player_set_volume`, `lv_ffmpeg_player_get_volume`, `lv_ffmpeg_player_set_audio_enabled`, `lv_ffmpeg_player_get_audio_enabled`
+  - 音频解码: 使用 FFmpeg 解码音频流，支持音频重采样到 44100Hz、16位、立体声
+  - 配置: 通过 `LV_FFMPEG_AUDIO_SUPPORT` 宏控制是否启用音频支持
 
 ### 硬件相关代码
 - 显示设备: `/dev/fb0` (framebuffer), `/dev/disp` (display 控制器)
@@ -315,7 +324,7 @@ event_close_visual_novel(e);
 编译时会链接以下库：
 - evdev: 输入设备事件处理
 - ssl, crypto: OpenSSL 加密功能
-- avcodec, avutil, avformat, swscale, swresample: FFmpeg 音视频编解码
+- avcodec, avutil, avformat, swscale, swresample, avdevice: FFmpeg 音视频编解码和设备支持
 - m: 数学库
 - z: zlib 压缩库
 - pthread: 多线程支持
@@ -334,6 +343,10 @@ event_close_visual_novel(e);
 - 文本编码: UTF-8
 - 支持的 LVGL 组件: 大部分基础组件已启用
 - FFmpeg 支持: 已启用（LV_USE_FFMPEG = 1）
+- FFmpeg 音频支持: 可选配置（LV_FFMPEG_AUDIO_SUPPORT）
+  - 默认值: 0（禁用）
+  - 启用后支持视频+音频同步播放
+  - 禁用时节省内存和 CPU 资源
 - 文件系统: POSIX 文件系统支持已启用（LV_USE_FS_POSIX = 1）
 - 注意: LVGL 9.x 不再使用 lv_drv_conf.h，驱动配置已集成到主配置文件中
 
@@ -437,6 +450,7 @@ git push
 11. **LVGL 版本**: 当前使用 LVGL 9.4.0，注意 API 兼容性（与 8.x 版本有重大变更）
 12. **颜色深度**: 使用 32-bit 颜色深度（XRGB8888）
 13. **驱动配置**: LVGL 9.x 不再使用独立的 lv_drv_conf.h，驱动配置已集成到 lv_conf.h 中
+14. **音频支持配置**: 视频播放器的音频支持默认禁用（LV_FFMPEG_AUDIO_SUPPORT = 0），如需使用请在 lv_conf.h 中启用
 
 ## 已知问题
 
@@ -465,7 +479,7 @@ git push
 - 利用 LVGL 9.x 新特性优化渲染性能
 
 ### 长期目标
-- 添加视频播放支持
+- 完善视频播放器功能（已实现基础视频+音频同步播放）
 - 实现网络流媒体播放
 - 添加更多 UI 组件和主题
 - 支持更多硬件平台
@@ -480,6 +494,172 @@ git push
 3. **测试**: 在提交前确保代码在目标设备上正常工作
 4. **文档**: 更新相关文档和注释
 5. **问题报告**: 使用 GitHub Issues 报告 bug 和提出功能请求
+
+## 视频+音频同步播放功能
+
+### 概述
+项目已实现视频播放器的音频同步播放功能，允许在播放视频文件时同时播放音频轨道。该功能基于 FFmpeg 的音频解码和 ALSA 音频输出，支持多种音频格式。
+
+### 配置选项
+
+#### 启用/禁用音频支持
+在 `lv_conf.h` 文件中配置：
+
+```c
+/** Enable audio support in FFmpeg player
+ *  Set to 1 to enable audio decoding and playback support in video player
+ *  Set to 0 to disable audio support (saves memory and CPU) */
+#define LV_FFMPEG_AUDIO_SUPPORT 0
+```
+
+**配置说明**：
+- `0`（默认）：禁用音频支持，仅播放视频，节省内存和 CPU 资源
+- `1`：启用音频支持，支持视频+音频同步播放
+
+### 技术实现
+
+#### 架构设计
+采用分层架构，保持 LVGL 库的独立性：
+- **LVGL 层**：负责视频解码和渲染，提供音频解码接口
+- **应用层**：负责音频播放器的初始化和控制（使用 `audio.c` 中的 `audio_player_t`）
+
+#### 音频处理流程
+1. **音频流检测**：在打开视频文件时自动检测是否包含音频流
+2. **音频解码**：使用 FFmpeg 解码音频数据
+3. **音频重采样**：将音频重采样到 44100Hz、16位、立体声格式
+4. **音频输出**：通过 ALSA 设备输出音频（使用 avdevice）
+
+#### 核心功能
+- **音频流解码**：支持多种音频格式（MP3, AAC, FLAC 等）
+- **音频重采样**：自动转换到标准输出格式
+- **同步播放**：视频和音频在同一循环中解码，确保同步
+- **音量控制**：支持 0-100 范围的音量调节
+- **音频开关**：可动态启用/禁用音频播放
+
+### API 接口
+
+#### 视频播放器基础 API
+```c
+// 创建视频播放器
+lv_obj_t *lv_ffmpeg_player_create(lv_obj_t *parent);
+
+// 设置视频文件
+lv_result_t lv_ffmpeg_player_set_src(lv_obj_t *obj, const char *path);
+
+// 控制播放
+void lv_ffmpeg_player_set_cmd(lv_obj_t *obj, lv_ffmpeg_player_cmd_t cmd);
+// cmd 值: LV_FFMPEG_PLAYER_CMD_START, STOP, PAUSE, RESUME
+
+// 设置自动重播
+void lv_ffmpeg_player_set_auto_restart(lv_obj_t *obj, bool en);
+```
+
+#### 音频控制 API
+```c
+// 设置音量 (0-100)
+void lv_ffmpeg_player_set_volume(lv_obj_t *obj, int volume);
+
+// 获取当前音量
+int lv_ffmpeg_player_get_volume(lv_obj_t *obj);
+
+// 启用/禁用音频
+void lv_ffmpeg_player_set_audio_enabled(lv_obj_t *obj, bool en);
+
+// 检查音频是否启用
+bool lv_ffmpeg_player_get_audio_enabled(lv_obj_t *obj);
+```
+
+### 使用示例
+
+#### 基础视频播放（无音频）
+```c
+// 创建视频播放器
+lv_obj_t *player = lv_ffmpeg_player_create(parent);
+
+// 设置视频文件
+lv_ffmpeg_player_set_src(player, "path/to/video.mp4");
+
+// 开始播放
+lv_ffmpeg_player_set_cmd(player, LV_FFMPEG_PLAYER_CMD_START);
+```
+
+#### 视频+音频同步播放
+```c
+// 1. 在 lv_conf.h 中启用音频支持
+// #define LV_FFMPEG_AUDIO_SUPPORT 1
+
+// 2. 重新编译项目
+// make -C build clean
+// make -C build -j$(nproc)
+
+// 3. 使用代码
+lv_obj_t *player = lv_ffmpeg_player_create(parent);
+
+// 设置视频文件（包含音频）
+lv_ffmpeg_player_set_src(player, "path/to/video_with_audio.mp4");
+
+// 设置音量
+lv_ffmpeg_player_set_volume(player, 75);
+
+// 开始播放（视频+音频同步）
+lv_ffmpeg_player_set_cmd(player, LV_FFMPEG_PLAYER_CMD_START);
+
+// 暂停播放
+lv_ffmpeg_player_set_cmd(player, LV_FFMPEG_PLAYER_CMD_PAUSE);
+
+// 恢复播放
+lv_ffmpeg_player_set_cmd(player, LV_FFMPEG_PLAYER_CMD_RESUME);
+
+// 停止播放
+lv_ffmpeg_player_set_cmd(player, LV_FFMPEG_PLAYER_CMD_STOP);
+```
+
+### 性能考虑
+
+#### 禁用音频支持（默认）
+- **内存占用**: 较低
+- **CPU 使用**: 较低
+- **适用场景**: 只需要视频显示的应用
+
+#### 启用音频支持
+- **内存占用**: 增加（音频缓冲区 + 重采样上下文）
+- **CPU 使用**: 增加（音频解码 + 重采样）
+- **适用场景**: 需要完整多媒体播放的应用
+
+### 依赖要求
+
+启用音频支持需要以下 FFmpeg 库：
+- `avdevice`: 设备支持（ALSA 输出）
+- `avcodec`: 音频编解码
+- `swresample`: 音频重采样
+
+这些库已在项目的 CMakeLists.txt 中配置。
+
+### 限制和注意事项
+
+1. **设备依赖**: 音频播放依赖 ALSA 设备，确保目标设备正确配置
+2. **格式支持**: 支持的音频格式取决于 FFmpeg 编译时的编解码器支持
+3. **同步精度**: 音视频同步精度取决于系统性能和缓冲区设置
+4. **内存管理**: 启用音频支持会增加内存使用，注意监控内存占用
+5. **配置切换**: 修改 `LV_FFMPEG_AUDIO_SUPPORT` 后需要重新编译整个项目
+
+### 故障排查
+
+#### 问题：视频播放正常但没有声音
+- 检查 `LV_FFMPEG_AUDIO_SUPPORT` 是否设置为 1
+- 检查 ALSA 设备是否正常工作（`aplay -l`）
+- 检查视频文件是否包含音频流
+- 查看日志输出，确认音频流是否被检测到
+
+#### 问题：音频和视频不同步
+- 检查系统负载，确保 CPU 资源充足
+- 调整音频缓冲区大小
+- 检查视频文件的编码格式
+
+#### 问题：编译失败
+- 确保所有 FFmpeg 库正确安装
+- 检查 CMakeLists.txt 中的库路径配置
+- 查看编译错误信息，确认缺少的依赖
 
 ## 许可证
 

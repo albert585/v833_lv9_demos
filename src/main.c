@@ -46,6 +46,7 @@ static void lv_linux_disp_init(void)
 {
     lv_display_t * disp = lv_linux_fbdev_create();
     lv_linux_fbdev_set_file(disp, "/dev/fb0");
+    lv_display_rotation_t(disp ,LV_DISPLAY_ROTATION_270);
 }
 
 static void lv_linux_touch_init(void)
