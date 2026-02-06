@@ -1,6 +1,6 @@
 echo ----kill robot----
-killall robotd
-killall robot_run_1
+killall -SIGSTOP robotd
+killall -SIGSTOP robot_run_1
 killall lvglsim
 sleep 1
 echo ----run demo----

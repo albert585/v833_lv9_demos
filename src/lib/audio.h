@@ -34,4 +34,10 @@ void audio_player_set_position(audio_player_t *player, int pos_ms);
 void audio_player_set_speed(audio_player_t *player, float speed);
 void audio_player_deinit(audio_player_t *player);
 
+// 获取当前 mixer 音量（0-100）
+int audio_mixer_get_volume(void);
+
+// 初始化 ALSA Mixer
+int audio_mixer_init(void);
+
 #endif // AUDIO_H

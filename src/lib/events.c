@@ -1,11 +1,13 @@
-#include "./events.h"
-#include "./file_manager.h"
-#include "./settings.h"
+#include "events.h"
+#include "file_manager.h"
+#include "settings.h"
+#include "container.h"
 #include "../main.h"
-#include "./audio.h"
-#include "./player.h"
-#include "./virsual_novel/visual_novel_engine.h"
+#include "audio.h"
+#include "player.h"
+#include "virsual_novel/visual_novel_engine.h"
 
+extern lv_obj_t *parent;
 player_t *current_player = NULL;
 
 void event_open_manager(lv_event_t * e)
@@ -13,14 +15,28 @@ void event_open_manager(lv_event_t * e)
     lv_event_code_t code = lv_event_get_code(e);
 
     if(code == LV_EVENT_CLICKED) {
+      lv_obj_add_flag(parent, LV_OBJ_FLAG_HIDDEN);
       file_manager();
     }
 }
 
 void event_close_manager(lv_event_t * e){
-  lv_obj_t * obj = lv_event_get_target(e);
-  lv_obj_t * manager = lv_event_get_user_data(e);
-  lv_obj_del(manager);
+  // 如果是通过代码调用（非事件触发），e 可能为 NULL
+  lv_obj_t * manager = NULL;
+  if (e) {
+    manager = lv_event_get_user_data(e);
+  } else {
+    // 如果没有事件，直接使用全局 manager 变量
+    extern lv_obj_t *manager;
+    manager = manager;
+  }
+
+  if (manager) {
+    lv_obj_del(manager);
+    manager = NULL;
+  }
+
+  lv_obj_clear_flag(parent, LV_OBJ_FLAG_HIDDEN);
   settings_close();
 }
 
@@ -36,6 +52,30 @@ void btn_robot_click(lv_event_t * e)
 {
     (void)e; // 避免未使用参数警告
     switchRobot();
+}
+
+// 文件选择事件处理
+void file_select_event(lv_event_t * e)
+{
+    lv_obj_t * file_explorer = lv_event_get_target(e);
+    lv_event_code_t code = lv_event_get_code(e);
+    
+    if(code == LV_EVENT_VALUE_CHANGED) {
+        // 获取当前路径和选中的文件名
+        const char * cur_path = lv_file_explorer_get_current_path(file_explorer);
+        const char * sel_fn = lv_file_explorer_get_selected_file_name(file_explorer);
+        
+        if (cur_path && sel_fn) {
+            // 构建完整路径（LVGL 格式）
+            char full_path[PATH_MAX];
+            snprintf(full_path, sizeof(full_path), "%s%s", cur_path, sel_fn);
+            
+            printf("[events] File selected: %s\n", full_path);
+            
+            // 调用 music_player 函数处理音频文件
+            music_player(full_path);
+        }
+    }
 }
 
 
@@ -61,13 +101,40 @@ void event_close_player(lv_event_t * e)
 
 void player_destroy_callback(player_t *player)
 {
-    (void)player; // 避免未使用参数警告
+    if (!player) return;
+    
+    // 如果销毁的是当前播放器，清空全局指针
+    if (current_player == player) {
+        printf("[events] Current player destroyed\n");
+        current_player = NULL;
+    }
 }
 
 void event_audio_test(lv_event_t * e)
 {
-    (void)e; // 避免未使用参数警告
-    // 音频测试功能
-    printf("Audio test button clicked\n");
+    (void)e;
+    printf("[audio_test] Audio test button clicked\n");
+
+    // 简单的音频测试：播放一个测试文件
+    const char *test_file = "/mnt/app/factory/1khz.wav";
+    printf("[audio_test] Playing test file: %s\n", test_file);
+
+    // 如果当前没有播放器，创建一个新的
+    if (current_player == NULL) {
+        printf("[audio_test] Creating new player instance\n");
+        current_player = player_create(parent);  // 使用 parent 容器
+        if (!current_player) {
+            printf("[audio_test] Failed to create player\n");
+            return;
+        }
+    }
+
+    // 设置音频文件并自动播放
+    player_set_file(current_player, test_file);
+    player_toggle_play_pause(current_player);
+
+    printf("[audio_test] Audio test started\n");
 }
+
+
 

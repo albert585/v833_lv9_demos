@@ -21,20 +21,22 @@
 #define PATH_MAX_LENGTH 256
 char homepath[PATH_MAX_LENGTH] = {0};
 
-extern int disphd  = 0;    
-extern int fbd = 0;
-extern int homed  = 0;
-extern int powerd  = 0;
+int disphd  = 0;    
+int fbd = 0;
+int homed  = 0;
+int powerd  = 0;
 
-extern int32_t sleepTs     = -1;
-extern uint32_t homeClickTs = -1;
-extern uint32_t backgroundTs = -1;
+int32_t sleepTs     = -1;
+uint32_t homeClickTs = -1;
+uint32_t backgroundTs = -1;
+
 extern uint32_t custom_tick_get(void);
 extern uint32_t tick_get(void);
 
-extern bool deepSleep  = false;
-extern bool dontDeepSleep  = false;
+bool deepSleep  = false;
+bool dontDeepSleep  = false;
 
+lv_display_t * disp = NULL;
 
 const char *getenv_default(const char *name, const char *default_val)
 {
@@ -44,14 +46,23 @@ const char *getenv_default(const char *name, const char *default_val)
 
 static void lv_linux_disp_init(void)
 {
-    lv_display_t * disp = lv_linux_fbdev_create();
-    lv_linux_fbdev_set_file(disp, "/dev/fb0");
-    lv_display_rotation_t(disp ,LV_DISPLAY_ROTATION_270);
+    const char *device = getenv_default("LV_LINUX_FBDEV_DEVICE", "/dev/fb0");
+    disp= lv_linux_fbdev_create();
+    lv_linux_fbdev_set_file(disp, device);
+    lv_display_set_resolution(disp,240, 960);
+    lv_display_set_offset(disp,0,120);
+    lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_90);
+
 }
+
+
 
 static void lv_linux_touch_init(void)
 {
-    lv_evdev_create(LV_INDEV_TYPE_POINTER, "/dev/input/event0");
+    lv_indev_t *touch =lv_evdev_create(LV_INDEV_TYPE_POINTER, "/dev/input/event0");
+    lv_indev_set_display(touch, disp);
+    lv_evdev_set_calibration(touch, 20, 960, 220, -120);
+    lv_evdev_set_swap_axes(touch,false);
 }
 
 void readKeyHome(void) {
@@ -110,18 +121,17 @@ void switchForeground(void)
     chdir(homepath);
     system("chmod 777 switch_foreground");
     system("sh ./switch_foreground &");
-    sleep(114514);
+    //sleep(114514);
 }
 
 void switchRobot(){
     switchBackground();
 
-    chdir("/mnt/app");
+    chdir(homepath);
     close(disphd);
     close(fbd);
     close(powerd);
-    system("killall wpa_supplicant");
-    system("./robot_run_1&");
+    system("switch_robot");
 }
 
 void lcdRefresh(void) {
@@ -176,8 +186,8 @@ void setDontDeepSleep(bool b){
 int main(int argc, char *argv[])
 {
   bool isDaemonMode = false;
-  system("killall robotd");
-  system("killall robot_run_1");
+  system("killall  robotd");
+  system("killall -SIGSTOP robot_run_1");
     for (uint32_t i = 0; i < argc; i++)
     {
         char * arg = argv[i];
@@ -218,7 +228,7 @@ int main(int argc, char *argv[])
   
 
 
-  lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x808080), 0);
+  lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0xFFFFFF), 0);
 
   create_container();
   button();

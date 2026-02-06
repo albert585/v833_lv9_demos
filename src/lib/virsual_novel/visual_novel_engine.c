@@ -64,6 +64,10 @@ static void update_textbox(const char *text, const textbox_config_t *textbox) {
     lv_label_set_text(engine.text_label, text);
     lv_obj_set_style_text_color(engine.text_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(engine.text_label, NULL, 0);
+    // 应用字体大小缩放（基于默认字体 10px，计算缩放比例）
+    int font_scale = (textbox->font_size * 256) / 10;  // LVGL 使用 256 作为基准
+    lv_obj_set_style_text_font(engine.text_label, NULL, 0);
+    lv_obj_set_style_transform_scale(engine.text_label, font_scale, 0);
     lv_label_set_long_mode(engine.text_label, LV_LABEL_LONG_WRAP);
     lv_obj_clear_flag(engine.text_label, LV_OBJ_FLAG_HIDDEN);
 }
@@ -207,6 +211,10 @@ bool vn_engine_load_page(const char *page_id) {
     // 加载背景图片
     if (page->background != NULL) {
         lv_img_set_src(engine.background_img, page->background);
+        // 设置背景图片缩放以适应屏幕大小
+        // 计算缩放比例：屏幕宽度 / 图片原始宽度
+        // 这里使用 256 作为基准缩放值
+        lv_image_set_scale(engine.background_img, 256);  // 默认缩放
     }
     
     // 加载角色图片
@@ -234,7 +242,8 @@ bool vn_engine_load_page(const char *page_id) {
             // 设置角色图片属性
             lv_img_set_src(engine.character_imgs[i], char_config->image);
             lv_obj_set_pos(engine.character_imgs[i], char_config->x, char_config->y);
-            // lv_obj_set_style_transform_scale(engine.character_imgs[i], char_config->scale * 256, 0); // Not available in LVGL 8.x
+            // 应用缩放（LVGL 9.x 支持 transform_scale）
+            lv_obj_set_style_transform_scale(engine.character_imgs[i], (int)(char_config->scale * 256), 0);
             if (char_config->visible) {
                 lv_obj_clear_flag(engine.character_imgs[i], LV_OBJ_FLAG_HIDDEN);
             } else {

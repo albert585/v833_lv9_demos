@@ -29,7 +29,10 @@ void player_stop(player_t *player);
 player_state_t player_get_state(player_t *player);
 int player_get_position_pct(player_t *player);
 void player_destroy(player_t *player);
-void player_preinit_alsa(void);
+
+// 音量控制
+void player_set_volume(player_t *player, int volume);
+int player_get_volume(player_t *player);
 
 // 播放器销毁回调（需要在 events.c 中实现）
 extern void player_destroy_callback(player_t *player);

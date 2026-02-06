@@ -1,42 +1,5 @@
 #include "player.h"
 #include <stdio.h>
-#include <pthread.h>
-#include <alsa/asoundlib.h>
-
-static pthread_t alsa_init_thread;
-static volatile int alsa_initialized = 0;
-
-// ALSA 预初始化线程
-static void *alsa_preinit_thread_func(void *arg) {
-    (void)arg;
-    printf("[player] ALSA pre-init thread started\n");
-
-    // 禁用 ALSA 配置文件
-    setenv("ALSA_CONFIG_PATH", "/dev/null", 1);
-
-    // 预初始化 ALSA，使用非阻塞模式打开设备
-    snd_pcm_t *test_pcm;
-    printf("[player] Opening ALSA device (non-blocking)...\n");
-    int ret = snd_pcm_open(&test_pcm, "hw:0,0", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
-    if (ret >= 0) {
-        printf("[player] ALSA pre-init successful\n");
-        snd_pcm_close(test_pcm);
-    } else {
-        printf("[player] ALSA pre-init failed: %s\n", snd_strerror(ret));
-    }
-
-    alsa_initialized = 1;
-    printf("[player] ALSA pre-init thread finished\n");
-    return NULL;
-}
-
-// 启动 ALSA 预初始化（在 main() 中调用）
-void player_preinit_alsa(void) {
-    if (alsa_initialized) return;
-    printf("[player] Starting ALSA pre-init...\n");
-    pthread_create(&alsa_init_thread, NULL, alsa_preinit_thread_func, NULL);
-    pthread_detach(alsa_init_thread);
-}
 
 static void update_time_label(player_t *player) {
     if (!player || !player->audio) return;
@@ -93,14 +56,28 @@ player_t *player_create(lv_obj_t *parent) {
     if (!player) return NULL;
     memset(player, 0, sizeof(player_t));
 
+    // 初始化 mixer
+    if (audio_mixer_init() < 0) {
+        printf("[player] Warning: Failed to initialize mixer\n");
+    }
+
     // 创建容器
     player->cont = lv_obj_create(parent);
+    if (!player->cont) {
+        free(player);
+        return NULL;
+    }
     lv_obj_set_size(player->cont, lv_pct(100), 120);
     lv_obj_set_flex_flow(player->cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(player->cont, 8, 0);
 
     // 创建顶部行容器（标题和关闭按钮）
     lv_obj_t *top_row = lv_obj_create(player->cont);
+    if (!top_row) {
+        lv_obj_del(player->cont);
+        free(player);
+        return NULL;
+    }
     lv_obj_set_size(top_row, lv_pct(100), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(top_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(top_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -110,37 +87,74 @@ player_t *player_create(lv_obj_t *parent) {
 
     // 标题标签
     player->title_label = lv_label_create(top_row);
+    if (!player->title_label) {
+        lv_obj_del(player->cont);
+        free(player);
+        return NULL;
+    }
     lv_label_set_text(player->title_label, "未选择文件");
     lv_obj_set_flex_grow(player->title_label, 1);
 
     // 关闭按钮
     lv_obj_t *close_btn = lv_btn_create(top_row);
+    if (!close_btn) {
+        lv_obj_del(player->cont);
+        free(player);
+        return NULL;
+    }
     lv_obj_set_size(close_btn, 40, 40);
     lv_obj_add_event_cb(close_btn, close_btn_callback, LV_EVENT_CLICKED, player);
     lv_obj_t *close_label = lv_label_create(close_btn);
-    lv_label_set_text(close_label, "×");
+    if (close_label) {
+        lv_label_set_text(close_label, "×");
+    }
 
     // 进度条
     player->progress_slider = lv_slider_create(player->cont);
+    if (!player->progress_slider) {
+        lv_obj_del(player->cont);
+        free(player);
+        return NULL;
+    }
     lv_obj_set_width(player->progress_slider, lv_pct(100));
     lv_obj_add_event_cb(player->progress_slider, progress_slider_callback,
                        LV_EVENT_VALUE_CHANGED | LV_EVENT_RELEASED, player);
 
     // 时间标签
     player->time_label = lv_label_create(player->cont);
+    if (!player->time_label) {
+        lv_obj_del(player->cont);
+        free(player);
+        return NULL;
+    }
     lv_label_set_text(player->time_label, "00:00 / 00:00");
 
     // 控制按钮
     player->control_btn = lv_btn_create(player->cont);
+    if (!player->control_btn) {
+        lv_obj_del(player->cont);
+        free(player);
+        return NULL;
+    }
     lv_obj_set_size(player->control_btn, 50, 50);
     lv_obj_add_event_cb(player->control_btn, control_btn_callback, LV_EVENT_CLICKED, player);
     lv_obj_t *btn_label = lv_label_create(player->control_btn);
-    lv_label_set_text(btn_label, "播放");
+    if (btn_label) {
+        lv_label_set_text(btn_label, "播放");
+    }
 
     // 音量滑块
     player->volume_slider = lv_slider_create(player->cont);
+    if (!player->volume_slider) {
+        lv_obj_del(player->cont);
+        free(player);
+        return NULL;
+    }
     lv_obj_set_width(player->volume_slider, 150);
     lv_slider_set_range(player->volume_slider, 0, 100);
+    // 获取当前硬件音量作为默认值
+    int default_volume = audio_mixer_get_volume();
+    lv_slider_set_value(player->volume_slider, default_volume, LV_ANIM_OFF);
     lv_obj_add_event_cb(player->volume_slider, volume_slider_callback, LV_EVENT_VALUE_CHANGED, player);
 
     // 延迟初始化音频播放器，避免在 LVGL 事件回调中阻塞
@@ -164,25 +178,12 @@ void player_set_file(player_t *player, const char *file_path) {
 
     player_stop(player);
 
-    // 等待 ALSA 预初始化完成
-    printf("[player] Waiting for ALSA pre-init...\n");
-    int timeout = 50; // 最多等待 5 秒
-    while (!alsa_initialized && timeout > 0) {
-        usleep(100000); // 等待 100ms
-        timeout--;
-    }
-
-    if (!alsa_initialized) {
-        printf("[player] Warning: ALSA pre-init timeout\n");
-    } else {
-        printf("[player] ALSA pre-init completed\n");
-    }
-
-    // 初始化音频播放器（由于 ALSA 已经预初始化，这里应该不会阻塞）
+    // 初始化音频播放器（使用 libavdevice 进行音频输出）
     printf("[player] Initializing audio player...\n");
     player->audio = audio_player_init(player->volume_slider);
     if (!player->audio) {
         printf("[player] Failed to initialize audio player\n");
+        player->state = PLAYER_STATE_STOPPED;
         return;
     }
     printf("[player] Audio player initialized\n");
@@ -191,6 +192,11 @@ void player_set_file(player_t *player, const char *file_path) {
         lv_label_set_text(player->title_label, file_path);
         lv_slider_set_value(player->progress_slider, 0, LV_ANIM_OFF);
         update_time_label(player);
+    } else {
+        printf("[player] Failed to open audio file\n");
+        audio_player_deinit(player->audio);
+        player->audio = NULL;
+        player->state = PLAYER_STATE_STOPPED;
     }
 }
 
@@ -201,15 +207,21 @@ void player_toggle_play_pause(player_t *player) {
         return;
     }
 
+    lv_obj_t *btn_label = lv_obj_get_child(player->control_btn, 0);
+    if (!btn_label) {
+        printf("[player] Failed to get button label\n");
+        return;
+    }
+
     if (player->state == PLAYER_STATE_PLAYING) {
         audio_player_pause(player->audio);
         player->state = PLAYER_STATE_PAUSED;
-        lv_label_set_text(lv_obj_get_child(player->control_btn, 0), "播放");
+        lv_label_set_text(btn_label, "播放");
         lv_timer_pause(player->timer);
     } else {
         audio_player_play(player->audio);
         player->state = PLAYER_STATE_PLAYING;
-        lv_label_set_text(lv_obj_get_child(player->control_btn, 0), "暂停");
+        lv_label_set_text(btn_label, "暂停");
         lv_timer_resume(player->timer);
     }
 }
@@ -221,7 +233,10 @@ void player_stop(player_t *player) {
         audio_player_stop(player->audio);
     }
     player->state = PLAYER_STATE_STOPPED;
-    lv_label_set_text(lv_obj_get_child(player->control_btn, 0), "播放");
+    lv_obj_t *btn_label = lv_obj_get_child(player->control_btn, 0);
+    if (btn_label) {
+        lv_label_set_text(btn_label, "播放");
+    }
     lv_slider_set_value(player->progress_slider, 0, LV_ANIM_OFF);
     update_time_label(player);
     lv_timer_pause(player->timer);
@@ -243,10 +258,24 @@ void player_destroy(player_t *player) {
     // 调用销毁回调
     player_destroy_callback(player);
 
-    lv_timer_del(player->timer);
+    if (player->timer) {
+        lv_timer_del(player->timer);
+    }
     if (player->audio) {
         audio_player_deinit(player->audio);
     }
     lv_obj_del(player->cont);
     free(player);
+}
+
+void player_set_volume(player_t *player, int volume) {
+    if (!player || !player->audio) return;
+
+    audio_player_set_volume(player->audio, volume);
+}
+
+int player_get_volume(player_t *player) {
+    if (!player || !player->audio) return 0;
+
+    return player->audio->volume;
 }

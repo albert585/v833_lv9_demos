@@ -13,5 +13,6 @@ extern void event_close_visual_novel(lv_event_t * e);
 // 音频播放器相关
 extern player_t *current_player;
 extern void event_close_player(lv_event_t * e);
+extern void player_destroy_callback(player_t *player);
 // 音频测试
 extern void event_audio_test(lv_event_t * e);

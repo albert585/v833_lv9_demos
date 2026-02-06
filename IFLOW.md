@@ -7,6 +7,7 @@
 - **操作系统**: Tina Linux
 - **Git 仓库**: https://github.com/albert585/v833_lv9_demos
 - **LVGL 版本**: 9.4.0（作为 Git 子模块）
+- **项目版本**: 1.0.0
 
 ## 项目概述
 
@@ -17,6 +18,7 @@
 - 移除了独立的 lv_drivers 子模块，驱动配置已集成到 lv_conf.h 中
 - 视觉小说引擎已适配 LVGL 9.x API
 - 部分代码可能需要进一步适配 LVGL 9.x 的 API 变更
+- 新增视频+音频同步播放功能（可选配置）
 
 ### 主要技术栈
 - **GUI 框架**: LVGL 9.4.0（作为 Git 子模块）
@@ -47,6 +49,18 @@
 2. **容器系统**（container.c/h）：提供主界面容器，管理各功能模块的显示/隐藏
 3. **事件系统**（events.c/h）：统一处理所有用户交互事件，协调各模块切换
 4. **功能模块**：各功能模块独立实现，通过事件回调与主系统集成
+
+### 显示和输入系统
+- **显示初始化**（lv_linux_disp_init）：
+  - 使用 `lv_linux_fbdev_create()` 创建 framebuffer 显示设备
+  - 默认设备：`/dev/fb0`（可通过环境变量 `LV_LINUX_FBDEV_DEVICE` 配置）
+  - 显示旋转：90 度（`LV_DISPLAY_ROTATION_90`）
+  - DPI 设置：130（lv_conf.h 中配置）
+
+- **触摸初始化**（lv_linux_touch_init）：
+  - 使用 `lv_evdev_create()` 创建 EVDEV 输入设备
+  - 默认设备：`/dev/input/event0`
+  - 触摸屏校准：`lv_evdev_set_calibration(touch, -40, 940, 310, 25)`
 
 ### 视觉小说引擎集成
 视觉小说引擎作为独立模块集成到主系统中：
@@ -87,30 +101,56 @@ v833_lv9_demos/
 │           ├── data_parser.c/h         # JSON 数据解析器
 │           ├── cJSON.c/h               # JSON 解析库
 │           ├── simple_json.c/h         # 简单 JSON 实现
-│           ├── test_parser.c           # 解析器测试
-│           ├── data/                   # 故事数据目录
-│           │   └── story.json          # 故事配置文件
-│           └── README.md               # 引擎说明文档
+│           ├── README.md               # 引擎说明文档
+│           └── data/                   # 故事数据目录
+│               └── story.json          # 故事配置文件（"樱花季节的回忆"）
 ├── lvgl/                    # LVGL 源码（Git 子模块）
+│   ├── src/                 # LVGL 核心源码
+│   │   ├── core/            # 核心功能
+│   │   ├── display/         # 显示相关
+│   │   ├── draw/            # 绘制引擎
+│   │   ├── drivers/         # 平台驱动
+│   │   ├── font/            # 字体支持
+│   │   ├── indev/           # 输入设备
+│   │   ├── layouts/         # 布局管理
+│   │   ├── libs/            # 扩展库（FFmpeg、SVG、PNG 等）
+│   │   ├── misc/            # 工具函数
+│   │   ├── osal/            # 操作系统抽象层
+│   │   ├── others/          # 其他功能
+│   │   ├── stdlib/          # 标准库
+│   │   ├── themes/          # 主题系统
+│   │   ├── tick/            # 时钟管理
+│   │   └── widgets/         # UI 组件
+│   ├── examples/            # 示例代码
+│   ├── demos/               # 演示程序
+│   ├── tests/               # 测试代码
+│   └── docs/                # 文档
 ├── config/                  # 不同设备的配置文件
 │   ├── t01pro/             # T01Pro 设备配置
+│   │   ├── lv_conf.h
+│   │   └── lv_drv_conf.h
 │   └── t3/                 # T3 设备配置
+│       ├── lv_conf.h
+│       └── lv_drv_conf.h
 ├── scripts/                 # 脚本文件
-│   └── back.sh             # 后台返回脚本
-├── bin/                     # 二进制输出目录
-├── build/                   # 构建输出目录
+│   ├── switch_foreground   # 切换到前台脚本
+│   └── switch_robot        # 切换到机器人模式脚本
 ├── include/                 # 头文件目录
 │   └── sunxi_display2.h    # 显示驱动头文件
+├── build/                   # 构建输出目录（.gitignore）
+├── pack/                    # 打包目录（.gitignore）
 ├── CMakeLists.txt           # CMake 构建配置
 ├── user_cross_compile_setup.cmake  # 交叉编译工具链配置
 ├── lv_conf.h               # LVGL 配置文件
 ├── lv_conf.h.v8            # LVGL 8.x 配置备份
 ├── lv_conf.h.backup        # LVGL 配置备份
 ├── Makefile                # Makefile 构建配置
-├── test_ffmpeg_simple.c    # FFmpeg 最小测试程序
-├── test_ffmpeg_alsa.c      # FFmpeg + ALSA 集成测试程序
-├── test_audio_direct.c     # 音频直接测试程序
-└── README.md               # 项目说明文档
+├── .gitignore              # Git 忽略配置
+├── .gitmodules             # Git 子模块配置
+├── cmake_install.cmake     # CMake 安装配置
+├── LICENSE                 # 许可证文件
+├── README.md               # 项目说明文档
+└── IFLOW.md                # iFlow CLI 项目文档（.gitignore）
 ```
 
 ## 构建和运行
@@ -145,24 +185,23 @@ v833_lv9_demos/
 
 ### 构建目标
 - `lvglsim`: 主可执行文件，位于 `build/bin/` 目录
-- `lvgl_linux`: 静态库（包含自定义 LVGL 扩展）
+- `lvgl_linux`: 静态库（包含自定义 LVGL 扩展），位于 `build/lib/` 目录
 - `lvgl`: LVGL 9.4.0 核心库
-- `test_ffmpeg_simple`: FFmpeg 最小测试程序（不依赖 ALSA）
-- `test_ffmpeg_alsa`: FFmpeg + ALSA 集成测试程序
-- `test_audio_direct`: 音频直接测试程序
 - `run`: 构建并运行（仅用于本地测试）
+- `clean-all`: 清理所有构建产物
 - `all`: 构建所有目标（默认）
-- `clean`: 清理构建产物
 
 ### 清理构建
 ```bash
 make -C build clean
+# 或
+make -C build clean-all
 ```
 
 ## 视觉小说引擎
 
 ### 概述
-视觉小说引擎是基于 LVGL 9.4.0 构建的独立模块，通过 JSON 配置文件管理图片路径和文字内容，实现灵活的视觉小说制作与展示。
+视觉小说引擎是基于 LVGL 9.4.0 构建的独立模块，通过 JSON 配置文件管理图片路径和文字内容，实现灵活的视觉小说制作与展示。引擎支持本地文件路径和网络 URL 图片资源，无需重新编译即可更新故事内容。
 
 ### 主要功能
 - **JSON 配置驱动**: 通过 JSON 文件定义每页的背景图、角色图、文字内容、文本框样式等
@@ -175,8 +214,8 @@ make -C build clean
 ### JSON 配置格式
 ```json
 {
-  "title": "故事标题",
-  "author": "作者",
+  "title": "樱花季节的回忆",
+  "author": "视觉小说开发者",
   "pages": [
     {
       "id": "page1",
@@ -185,9 +224,9 @@ make -C build clean
         {
           "id": "char1",
           "image": "角色图片路径或URL",
-          "x": 100,
-          "y": 200,
-          "scale": 1.0,
+          "x": 200,
+          "y": 250,
+          "scale": 0.8,
           "visible": true
         }
       ],
@@ -207,6 +246,22 @@ make -C build clean
   ]
 }
 ```
+
+**配置说明**：
+- `title`: 故事标题
+- `author`: 作者名称
+- `pages`: 页面数组，每个页面包含：
+  - `id`: 页面唯一标识符
+  - `background`: 背景图片路径（支持本地路径或网络 URL）
+  - `characters`: 角色数组，每个角色包含：
+    - `id`: 角色唯一标识符
+    - `image`: 角色图片路径（支持本地路径或网络 URL）
+    - `x`, `y`: 角色位置坐标
+    - `scale`: 角色缩放比例
+    - `visible`: 角色可见性
+  - `text`: 页面文字内容
+  - `textbox`: 文本框配置
+  - `next_page`: 下一页 ID（null 表示最后一页）
 
 ### API 接口
 - `vn_engine_init(json_path)`: 初始化引擎，加载 JSON 配置
@@ -235,6 +290,7 @@ event_close_visual_novel(e);
 - 选择分支功能
 - 动画效果
 - 存档/读档功能
+- 字体加载功能优化（当前使用 LVGL 默认字体）
 
 ## 开发约定
 
@@ -276,6 +332,8 @@ event_close_visual_novel(e);
 - 显示设备: `/dev/fb0` (framebuffer), `/dev/disp` (display 控制器)
 - 输入设备: `/dev/input/event0` (触摸屏), `/dev/input/event1` (电源键), `/dev/input/event2` (Home 键)
 - 触摸屏校准参数: x=-40, y=940, x_max=310, y_max=25
+- 显示旋转: 90 度（`LV_DISPLAY_ROTATION_90`）
+- DPI 设置: 130
 
 ### 事件系统
 系统事件处理模块（events.c/h）提供以下功能：
@@ -305,8 +363,17 @@ event_close_visual_novel(e);
   - 启动机器人程序（robot_run_1）
 - **switchForeground()**: 从后台切回前台
   - 切换到原工作目录
-  - 执行返回脚本（/mnt/app/back.sh）
+  - 执行返回脚本（/mnt/app/switch_foreground）
 - 主程序启动时会自动终止现有的 robotd 和 robot_run_1 进程
+
+### 脚本说明
+- **scripts/switch_foreground**: 切换到前台脚本
+  - 停止 robotd 和 robot_run_1 进程
+  - 停止 lvglsim 进程
+  - 启动 lvglsim 应用
+- **scripts/switch_robot**: 切换到机器人模式脚本
+  - 根据 /mnt/app/robot_select.txt 选择启动机器人程序
+  - 支持 robot_run_1 和 robot_run 两种模式
 
 ### 依赖库路径
 - 头文件路径:
@@ -352,7 +419,8 @@ event_close_visual_novel(e);
 
 ### 可选后端支持
 CMakeLists.txt 支持多种后端（通过 CONFIG_LV_USE_* 宏控制）：
-- **EVDEV**: Linux 输入设备事件支持
+- **EVDEV**: Linux 输入设备事件支持（已启用）
+- **Linux FBDEV**: Linux Framebuffer 显示支持（已启用）
 - **Linux DRM**: Direct Rendering Manager 显示支持
 - **GBM**: Generic Buffer Manager 支持
 - **libinput**: 高级输入设备支持
@@ -370,19 +438,11 @@ CMakeLists.txt 支持多种后端（通过 CONFIG_LV_USE_* 宏控制）：
 ## 测试和调试
 
 ### 视觉小说引擎测试
-- **test_parser.c**: JSON 解析器测试程序
+- **README.md**: 视觉小说引擎说明文档（位于 `src/lib/virsual_novel/README.md`）
 - **数据文件**: `src/lib/virsual_novel/data/story.json` 包含示例故事（"樱花季节的回忆"）
-
-### 音频测试程序
-- **test_ffmpeg_simple.c**: FFmpeg 最小测试程序（不依赖 ALSA）
-  - 用于测试 FFmpeg 基本解码功能
-  - 编译目标: `test_ffmpeg_simple`
-- **test_ffmpeg_alsa.c**: FFmpeg + ALSA 集成测试程序
-  - 测试完整的音频播放流程
-  - 编译目标: `test_ffmpeg_alsa`
-- **test_audio_direct.c**: 音频直接测试程序
-  - 直接测试音频模块功能
-  - 编译目标: `test_audio_direct`
+  - 支持 3 页内容，包含背景图、角色图和文本框
+  - 使用网络图片资源（字节跳动 CDN）
+  - 角色包含位置、缩放和可见性配置
 
 ### 调试输出
 - 主程序包含关键操作的 printf 输出：
@@ -440,7 +500,7 @@ git push
 1. **交叉编译**: 项目使用 musl libc 的 ARM 工具链，确保工具链路径正确
 2. **Git 子模块**: LVGL 作为子模块包含，首次克隆时使用 `--recursive` 参数
 3. **硬件依赖**: 程序依赖特定的硬件设备节点，只能在目标 V833 设备上运行
-4. **显示旋转**: 默认显示旋转 90 度（代码注释中提及，但实际未启用）
+4. **显示旋转**: 默认显示旋转 90 度
 5. **触摸校准**: 触摸屏坐标需要校准以匹配显示旋转后的坐标
 6. **网络资源**: 视觉小说引擎支持网络图片资源，需要设备有网络连接
 7. **进程管理**: 主程序启动时会终止现有的 robotd 和 robot_run_1 进程
@@ -451,15 +511,14 @@ git push
 12. **颜色深度**: 使用 32-bit 颜色深度（XRGB8888）
 13. **驱动配置**: LVGL 9.x 不再使用独立的 lv_drv_conf.h，驱动配置已集成到 lv_conf.h 中
 14. **音频支持配置**: 视频播放器的音频支持默认禁用（LV_FFMPEG_AUDIO_SUPPORT = 0），如需使用请在 lv_conf.h 中启用
+15. **.gitignore**: build/、pack/ 和 IFLOW.md 目录已被忽略，不会被提交到 Git 仓库
 
 ## 已知问题
 
-- README 中提到有大量 TODO 待完成
 - 视觉小说引擎的扩展功能（多语言、音效、选择分支、动画效果、存档/读档）尚未实现
 - 文件选择事件处理逻辑（file_select_event）中的 TODO 尚未完成
 - 字体加载功能尚未完全实现，当前使用 LVGL 默认字体
-- 显示旋转功能在代码注释中提及但未实际启用
-- LVGL 9.x API 与 8.x 有重大变更，部分代码可能需要适配
+- LVGL 9.x API 与 8.x 有重大变更，部分代码可能需要进一步适配
 
 ## 未来计划
 
@@ -475,7 +534,6 @@ git push
 - 添加动画效果支持
 - 实现多语言支持
 - 优化图片加载性能
-- 启用显示旋转功能
 - 利用 LVGL 9.x 新特性优化渲染性能
 
 ### 长期目标

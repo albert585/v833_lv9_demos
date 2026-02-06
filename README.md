@@ -1,7 +1,7 @@
-# v833_lv_demos
+# v833_lv9_demos
 全志v833主控基于Tina Linux运行LVGL实例
 
-使用LVGL8.3
+使用LVGL9.4
 
 # 使用方法
 
@@ -15,6 +15,3 @@ git clone --recursive https://github.com/albert585/v833_lv9_demos
 cmake -DCMAKE_TOOLCHAIN_FILE=./user_cross_compile_setup.cmake -B build -S .
 make -C build -j$(nproc)
 ```
-
-# TODO
-太多了

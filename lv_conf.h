@@ -92,7 +92,7 @@
 
 /** Default Dots Per Inch. Used to initialize default sizes such as widgets sized, style paddings.
  * (Not so important, you can adjust it to modify default sizes and spaces.) */
-#define LV_DPI_DEF 130              /**< [px/inch] */
+#define LV_DPI_DEF 130            /**< [px/inch] */
 
 /*=================
  * OPERATING SYSTEM
@@ -423,7 +423,7 @@
 
     /** - 1: Print log with 'printf';
      *  - 0: User needs to register a callback with `lv_log_register_print_cb()`. */
-    #define LV_LOG_PRINTF 0
+    #define LV_LOG_PRINTF 1
 
     /** Set callback to print logs.
      *  E.g `my_print`. The prototype should be `void my_print(lv_log_level_t level, const char * buf)`.
@@ -606,8 +606,8 @@
 #define LV_FONT_MONTSERRAT_8  0
 #define LV_FONT_MONTSERRAT_10 0
 #define LV_FONT_MONTSERRAT_12 0
-#define LV_FONT_MONTSERRAT_14 1
-#define LV_FONT_MONTSERRAT_16 0
+#define LV_FONT_MONTSERRAT_14 0
+#define LV_FONT_MONTSERRAT_16 1
 #define LV_FONT_MONTSERRAT_18 0
 #define LV_FONT_MONTSERRAT_20 0
 #define LV_FONT_MONTSERRAT_22 0
@@ -647,7 +647,7 @@
 #define LV_FONT_CUSTOM_DECLARE
 
 /** Always set a default font */
-#define LV_FONT_DEFAULT &lv_font_montserrat_14
+#define LV_FONT_DEFAULT &lv_font_montserrat_16
 
 /** Enable handling large font and/or fonts with a lot of characters.
  *  The limit depends on the font size, font face and bpp.
@@ -1033,7 +1033,7 @@
     /** Enable audio support in FFmpeg player
      *  Set to 1 to enable audio decoding and playback support in video player
      *  Set to 0 to disable audio support (saves memory and CPU) */
-    #define LV_FFMPEG_AUDIO_SUPPORT 0
+    #define LV_FFMPEG_AUDIO_SUPPORT 1
 #endif
 
 /*==================
@@ -1061,10 +1061,8 @@
      *  - Requires `LV_USE_SYSMON = 1` */
     #define LV_USE_PERF_MONITOR 1
     #if LV_USE_PERF_MONITOR
-        #define LV_USE_PERF_MONITOR_POS LV_ALIGN_RIGHT_MID
-
-        /** 0: Displays performance data on the screen; 1: Prints performance data using log. */
-        #define LV_USE_PERF_MONITOR_LOG_MODE 1
+        #define LV_USE_PERF_MONITOR_POS LV_ALIGN_BOTTOM_LEFT     /** 0: Displays performance data on the screen; 1: Prints performance data using log. */
+        #define LV_USE_PERF_MONITOR_LOG_MODE 0
     #endif
 
     /** 1: Show used memory and memory fragmentation.
@@ -1178,7 +1176,7 @@
     #define LV_FILE_EXPLORER_PATH_MAX_LEN        (256)
     /** Quick access bar, 1:use, 0:do not use.
      *  - Requires: lv_list */
-    #define LV_FILE_EXPLORER_QUICK_ACCESS        0
+    #define LV_FILE_EXPLORER_QUICK_ACCESS        1
 #endif
 
 /** 1: Enable Font manager */

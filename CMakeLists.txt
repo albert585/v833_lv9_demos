@@ -13,30 +13,30 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set default build type to Debug if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
 # Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# Compiler flags
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic")
+# Compiler flags (CFLAGS)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -g")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -DNDEBUG -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -g")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -DNDEBUG -g")
+
+# Linker flags (LDFLAGS)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
 
 # Cross-compilation toolchain paths (for ARM musl toolchain)
-set(CROSS_COMPILE_INCLUDE_DIRS
-    /srv/alsa/include
-    /srv/ffmpeg/include
-    /srv/zlib-armv7/include
-)
-
-set(CROSS_COMPILE_LIBRARY_DIRS
-    /srv/evdev/lib
-    /srv/openssl/lib
-    /srv/zlib/lib
-    /srv/ffmpeg/lib
-    /srv/alsa/lib
-)
+set(CROSS_COMPILE_INCLUDE_DIRS /srv/alsa/include /srv/ffmpeg/include /srv/zlib-armv7/include)
 
 # Add cross-compile include directories
 foreach(DIR ${CROSS_COMPILE_INCLUDE_DIRS})
@@ -51,9 +51,8 @@ set(LV_BUILD_SET_CONFIG_OPTS ON CACHE BOOL
 # Add LVGL subdirectory
 add_subdirectory(lvgl)
 
-# Find required packages
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(EVDEV REQUIRED libevdev)
+# Add lv_lib_100ask subdirectory
+add_subdirectory(src/lib/lv_lib_100ask)
 
 # Project include directories
 set(PROJECT_INCLUDE_DIRS
@@ -61,63 +60,15 @@ set(PROJECT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lib
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/virsual_novel
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lv_lib_100ask/
+
 )
 
-# Project source files
-set(PROJECT_SOURCES
-    # Main application
-    src/main.c
+# Project source files (auto-discover all .c files in src/ except main.c)
+file(GLOB PROJECT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/*.c ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/virsual_novel/*.c    )
 
-    # Core library modules
-    src/lib/audio.c
-    src/lib/button.c
-    src/lib/container.c
-    src/lib/events.c
-    src/lib/file_manager.c
-    src/lib/player.c
-    src/lib/settings.c
-
-    # Visual Novel Engine
-    src/lib/virsual_novel/cJSON.c
-    src/lib/virsual_novel/data_parser.c
-    src/lib/virsual_novel/resource_manager.c
-    src/lib/virsual_novel/simple_json.c
-    src/lib/virsual_novel/visual_novel_engine.c
-)
-
-# Project header files (for installation)
-set(PROJECT_HEADERS
-    src/main.h
-    src/lib/audio.h
-    src/lib/button.h
-    src/lib/container.h
-    src/lib/events.h
-    src/lib/file_manager.h
-    src/lib/player.h
-    src/lib/settings.h
-    src/lib/virsual_novel/cJSON.h
-    src/lib/virsual_novel/data_parser.h
-    src/lib/virsual_novel/resource_manager.h
-    src/lib/virsual_novel/simple_json.h
-    src/lib/virsual_novel/visual_novel_engine.h
-)
-
-# External libraries
-set(EXTERNAL_LIBRARIES
-    ssl
-    crypto
-    avcodec
-    avutil
-    avformat
-    swscale
-    swresample
-    avdevice
-    m
-    z
-    pthread
-    asound
-    evdev
-)
+# Project header files (auto-discover all .h files in src/)
+file(GLOB PROJECT_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/*.h ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/virsual_novel/*.h     )
 
 # Create lvgl_linux static library
 add_library(lvgl_linux STATIC ${PROJECT_SOURCES})
@@ -131,17 +82,11 @@ set_target_properties(lvgl_linux PROPERTIES
 # Add include directories for lvgl_linux
 target_include_directories(lvgl_linux PUBLIC
     ${PROJECT_INCLUDE_DIRS}
-    ${EVDEV_INCLUDE_DIRS}
 )
 
 # Set compile definitions
 set_target_properties(lvgl_linux PROPERTIES
     COMPILE_DEFINITIONS "${LVGL_COMPILER_DEFINITIONS}"
-)
-
-# Add library directories for linking
-target_link_directories(lvgl_linux PUBLIC
-    ${CROSS_COMPILE_LIBRARY_DIRS}
 )
 
 # Create main executable
@@ -159,23 +104,8 @@ target_include_directories(lvglsim PRIVATE
 )
 
 # Add library directories for linking
-target_link_directories(lvglsim PUBLIC
-    ${CROSS_COMPILE_LIBRARY_DIRS}
-)
-
-# Link libraries
-target_link_libraries(lvglsim
-    lvgl_linux
-    lvgl
-    lvgl_linux
-    ${EXTERNAL_LIBRARIES}
-)
-
-# Linker flags for executable
-target_link_options(lvglsim PRIVATE
-    -static-libgcc
-    -static-libstdc++
-)
+# Link libraries using traditional linker flags
+target_link_libraries(lvglsim lvgl_linux lvgl lv_lib_100ask -L/srv/evdev/lib -L/srv/openssl/lib -L/srv/zlib/lib -L/srv/ffmpeg/lib -L/srv/alsa/lib -Wl,-Bstatic -levdev -Wl,-Bdynamic -lssl -lcrypto -lavcodec -lavutil -lavformat -lswscale -lswresample -lavdevice -lasound -lz -lm -lpthread -ldl)
 
 # Installation rules
 install(TARGETS lvgl_linux lvglsim
