@@ -1,12 +1,15 @@
 #include "events.h"
 #include "file_manager.h"
+#include "lvgl/src/core/lv_obj_pos.h"
+#include "lvgl/src/display/lv_display.h"
 #include "settings.h"
 #include "container.h"
 #include "../main.h"
 #include "audio.h"
 #include "player.h"
+#include "src/lv_100ask_2048/lv_100ask_2048.h"
 #include "virsual_novel/visual_novel_engine.h"
-
+#include "lv_lib_100ask/lv_lib_100ask.h"
 extern lv_obj_t *parent;
 player_t *current_player = NULL;
 
@@ -88,15 +91,14 @@ void event_open_visual_novel(lv_event_t * e)
 
 void event_close_visual_novel(lv_event_t * e)
 {
-    (void)e; // 避免未使用参数警告
+    (void)e;
     vn_engine_deinit();
-
-
 }
 
 void event_close_player(lv_event_t * e)
 {
-    (void)e; // 避免未使用参数警告
+    (void)e; 
+    player_destroy(current_player);
 }
 
 void player_destroy_callback(player_t *player)
@@ -110,31 +112,40 @@ void player_destroy_callback(player_t *player)
     }
 }
 
-void event_audio_test(lv_event_t * e)
-{
+void event_open_2048(lv_event_t *e){
     (void)e;
-    printf("[audio_test] Audio test button clicked\n");
+    lv_obj_add_flag(parent, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t * obj_2048 = lv_100ask_2048_create(lv_screen_active());
+    lv_obj_set_size(obj_2048,200, 200);
+    lv_obj_center(obj_2048);
 
-    // 简单的音频测试：播放一个测试文件
-    const char *test_file = "/mnt/app/factory/1khz.wav";
-    printf("[audio_test] Playing test file: %s\n", test_file);
 
-    // 如果当前没有播放器，创建一个新的
-    if (current_player == NULL) {
-        printf("[audio_test] Creating new player instance\n");
-        current_player = player_create(parent);  // 使用 parent 容器
-        if (!current_player) {
-            printf("[audio_test] Failed to create player\n");
-            return;
-        }
-    }
-
-    // 设置音频文件并自动播放
-    player_set_file(current_player, test_file);
-    player_toggle_play_pause(current_player);
-
-    printf("[audio_test] Audio test started\n");
 }
+// void event_audio_test(lv_event_t * e)     /* 暂时不需要了 */
+// {
+//     (void)e;
+//     printf("[audio_test] Audio test button clicked\n");
+
+//     // 简单的音频测试：播放一个测试文件
+//     const char *test_file = "/mnt/app/factory/1khz.wav";
+//     printf("[audio_test] Playing test file: %s\n", test_file);    
+
+//     // 如果当前没有播放器，创建一个新的
+//     if (current_player == NULL) {
+//         printf("[audio_test] Creating new player instance\n");
+//         current_player = player_create(parent);  // 使用 parent 容器
+//         if (!current_player) {
+//             printf("[audio_test] Failed to create player\n");
+//             return;
+//         }
+//     }
+
+//     // 设置音频文件并自动播放
+//     player_set_file(current_player, test_file);
+//     player_toggle_play_pause(current_player);
+
+//     printf("[audio_test] Audio test started\n");
+// }
 
 
 

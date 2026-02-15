@@ -2,7 +2,6 @@
 #include "file_manager.h"
 #include "events.h"
 #include "container.h"
-#include "src/lib/lv_lib_100ask/src/lv_100ask_2048/lv_100ask_2048.h"
 void button(void)
 {
     lv_obj_t * label1;
@@ -10,6 +9,8 @@ void button(void)
     lv_obj_t * btn_label_vn;
     lv_obj_t * btn_label_robot;
     lv_obj_t * btn_label_audio;
+    lv_obj_t * btn_label_2048;
+
 
     lv_obj_t * btn1 = lv_btn_create(parent);
     lv_obj_t * btn2 = lv_btn_create(parent);
