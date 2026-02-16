@@ -433,9 +433,12 @@ audio_player_t *audio_player_init(lv_obj_t *volume_slider) {
 #endif
 
     // 初始化 ALSA Mixer（用于音量控制）
+    /* DISABLED: Mixer and PCM conflict - causing issues */
+    /*
     if (audio_mixer_init() < 0) {
         printf("[audio] Warning: Failed to initialize mixer, volume control may not work\n");
     }
+    */
 
 #if USE_AVDEVICE
     // 初始化 avdevice
@@ -445,7 +448,7 @@ audio_player_t *audio_player_init(lv_obj_t *volume_slider) {
     int ret = avformat_alloc_output_context2(&out_fmt_ctx, NULL, "alsa", "default");
     if (ret < 0 || !out_fmt_ctx) {
         printf("[audio] Error creating output context: %s\n", av_err2str(ret));
-        audio_mixer_deinit();
+        /* audio_mixer_deinit(); */  /* Mixer is disabled */
         free(player);
         return NULL;
     }
@@ -455,7 +458,7 @@ audio_player_t *audio_player_init(lv_obj_t *volume_slider) {
     if (!out_stream) {
         printf("[audio] Error creating output stream\n");
         avformat_free_context(out_fmt_ctx);
-        audio_mixer_deinit();
+        /* audio_mixer_deinit(); */  /* Mixer is disabled */
         free(player);
         return NULL;
     }
@@ -473,7 +476,7 @@ audio_player_t *audio_player_init(lv_obj_t *volume_slider) {
         if (ret < 0) {
             printf("[audio] Error opening output device: %s\n", av_err2str(ret));
             avformat_free_context(out_fmt_ctx);
-            audio_mixer_deinit();
+            /* audio_mixer_deinit(); */  /* Mixer is disabled */
             free(player);
             return NULL;
         }
@@ -485,20 +488,20 @@ audio_player_t *audio_player_init(lv_obj_t *volume_slider) {
         printf("[audio] Error writing header: %s\n", av_err2str(ret));
         avio_closep(&out_fmt_ctx->pb);
         avformat_free_context(out_fmt_ctx);
-        audio_mixer_deinit();
+        /* audio_mixer_deinit(); */  /* Mixer is disabled */
         free(player);
         return NULL;
     }
 
     // 设置初始音量
-    audio_mixer_set_volume(player->volume);
+    /* audio_mixer_set_volume(player->volume); */  /* Mixer is disabled */
 
     printf("[audio] Audio player initialized successfully with avdevice\n");
 #else
     // 初始化 ALSA PCM（直接输出）
     if (audio_pcm_init() < 0) {
         printf("[audio] Error: Failed to initialize ALSA PCM\n");
-        audio_mixer_deinit();
+        /* audio_mixer_deinit(); */  /* Mixer is disabled */
         free(player);
         return NULL;
     }
@@ -591,7 +594,7 @@ void audio_player_set_volume(audio_player_t *player, int volume) {
     player->volume = LV_CLAMP(player->volume_min, volume, player->volume_max);
     
     // 使用 ALSA Mixer 控制硬件音量
-    audio_mixer_set_volume(player->volume);
+    /* audio_mixer_set_volume(player->volume); */  /* Mixer is disabled */
     
     if (player->volume_slider) {
         lv_slider_set_value(player->volume_slider, player->volume, LV_ANIM_ON);
@@ -666,7 +669,7 @@ void audio_player_deinit(audio_player_t *player) {
 #endif
     
     // 清理 ALSA Mixer
-    audio_mixer_deinit();
+    /* audio_mixer_deinit(); */  /* Mixer is disabled */
     
     free(player);
 }

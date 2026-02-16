@@ -36,6 +36,9 @@ extern uint32_t tick_get(void);
 bool deepSleep  = false;
 bool dontDeepSleep  = false;
 
+// CPU频率控制
+static char original_governor[32] = {0};
+
 lv_display_t * disp = NULL;
 
 const char *getenv_default(const char *name, const char *default_val)
@@ -61,7 +64,7 @@ static void lv_linux_touch_init(void)
 {
     lv_indev_t *touch =lv_evdev_create(LV_INDEV_TYPE_POINTER, "/dev/input/event0");
     lv_indev_set_display(touch, disp);
-    lv_evdev_set_calibration(touch, 20, 960, 220, -120);
+    lv_evdev_set_calibration(touch, 20, 860, 220, -120);
     lv_evdev_set_swap_axes(touch,false);
 }
 
@@ -163,12 +166,45 @@ void touchClose(void) {
     close(tpd);
     printf("[tp]closed\n");
 }
+
+// 保存当前CPU governor
+static void saveCpuFreq(void) {
+    FILE *fp = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "r");
+    if (fp) {
+        if (fgets(original_governor, sizeof(original_governor), fp)) {
+            // 移除换行符
+            original_governor[strcspn(original_governor, "\n")] = 0;
+            printf("[cpu] Saved original governor: %s\n", original_governor);
+        }
+        fclose(fp);
+    } else {
+        printf("[cpu] Failed to read scaling_governor\n");
+    }
+}
+
+// 设置为最低频率（切换到 powersave governor）
+static void setCpuMinFreq(void) {
+    saveCpuFreq();
+    system("echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
+    printf("[cpu] Set to minimum frequency (powersave mode)\n");
+}
+
+// 恢复原始CPU governor
+static void restoreCpuFreq(void) {
+    if (original_governor[0] != 0) {
+        char cmd[128];
+        snprintf(cmd, sizeof(cmd), "echo %s > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", original_governor);
+        system(cmd);
+        printf("[cpu] Restored governor: %s\n", original_governor);
+    } else {
+        printf("[cpu] No original governor to restore\n");
+    }
+}
 void sysDeepSleep(void){
 	deepSleep = true;
     sleepTs   = -1;
-    // 睡死过去，相当省电
-    system("echo \"0\" >/sys/class/rtc/rtc0/wakealarm");
-    system("echo \"mem\" > /sys/power/state");
+    // 降低CPU频率到最低，保持浅睡眠逻辑（LCD和触摸屏已关闭）
+    setCpuMinFreq();
 
     // 按电源键会醒过来，继续执行下面的代码
 }
@@ -176,8 +212,11 @@ void sysDeepSleep(void){
 void sysWake(void){
         deepSleep = false;
         sleepTs = -1;
+        // 恢复CPU频率
+        restoreCpuFreq();
+        // 打开触摸屏和LCD
         touchOpen();
-    lcdOpen();
+        lcdOpen();
 }
 void setDontDeepSleep(bool b){
     dontDeepSleep = b;

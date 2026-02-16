@@ -11,6 +11,7 @@ extern void file_select_event(lv_event_t * e);
 extern void event_open_visual_novel(lv_event_t * e);
 extern void event_close_visual_novel(lv_event_t * e);
 extern void event_open_2048(lv_event_t * e);
+extern void event_play_video(lv_event_t * e);
 // 音频播放器相关
 extern player_t *current_player;
 extern void event_close_player(lv_event_t * e);

@@ -18,18 +18,19 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
+# Set default build type to Debug if not specified
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
+# Force -O2 optimization for all build types
+set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -g -O2" CACHE STRING "C compiler flags" FORCE)
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -g -O2" CACHE STRING "C++ compiler flags" FORCE)
+
 # Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-
-# Compiler flags (CFLAGS)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -g")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -DNDEBUG -g")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -g")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -DNDEBUG -g")
 
 # Linker flags (LDFLAGS)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
@@ -91,6 +92,23 @@ set_target_properties(lvgl_linux PROPERTIES
 
 # Create main executable
 add_executable(lvglsim src/main.c)
+
+# Strip debug symbols from lvglsim after building
+add_custom_command(TARGET lvglsim POST_BUILD
+    COMMAND ${CMAKE_STRIP} --strip-unneeded $<TARGET_FILE:lvglsim>
+    COMMENT "Stripping debug symbols from lvglsim"
+)
+
+# Create ALSA test program
+add_executable(test_alsa src/test_alsa.c)
+target_include_directories(test_alsa PRIVATE ${CROSS_COMPILE_INCLUDE_DIRS})
+target_link_libraries(test_alsa -L/srv/alsa/lib -lasound -lpthread)
+
+# Strip debug symbols from test_alsa after building
+add_custom_command(TARGET test_alsa POST_BUILD
+    COMMAND ${CMAKE_STRIP} --strip-unneeded $<TARGET_FILE:test_alsa>
+    COMMENT "Stripping debug symbols from test_alsa"
+)
 
 # Set executable properties
 set_target_properties(lvgl_linux PROPERTIES

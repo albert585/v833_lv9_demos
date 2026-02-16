@@ -7,10 +7,11 @@
 #include "../main.h"
 #include "audio.h"
 #include "player.h"
-#include "src/lv_100ask_2048/lv_100ask_2048.h"
 #include "virsual_novel/visual_novel_engine.h"
 #include "lv_lib_100ask/lv_lib_100ask.h"
+#include "button.h"
 extern lv_obj_t *parent;
+lv_obj_t *obj_2048 = NULL;
 player_t *current_player = NULL;
 
 void event_open_manager(lv_event_t * e)
@@ -115,11 +116,83 @@ void player_destroy_callback(player_t *player)
 void event_open_2048(lv_event_t *e){
     (void)e;
     lv_obj_add_flag(parent, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_t * obj_2048 = lv_100ask_2048_create(lv_screen_active());
-    lv_obj_set_size(obj_2048,200, 200);
+    obj_2048 = lv_100ask_2048_create(lv_screen_active());
+    
+    if (obj_2048 == NULL) {
+        printf("[2048] Failed to create 2048 game object\n");
+        lv_obj_clear_flag(parent, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    
+    lv_obj_set_size(obj_2048, 200, 200);
+    
+    if (btn_exit != NULL) {
+        lv_obj_set_size(btn_exit, 40, 40);
+    }
+
     lv_obj_center(obj_2048);
+}
+void event_close_2048(lv_event_t *e){
+  (void)e;
+  
+  if (obj_2048 != NULL) {
+    lv_obj_del(obj_2048);
+    obj_2048 = NULL;
+  }
+  
+  lv_obj_clear_flag(parent, LV_OBJ_FLAG_HIDDEN);
+}
 
-
+void event_play_video(lv_event_t *e)
+{
+    (void)e;
+    printf("[video] Play video button clicked\n");
+    
+    // 视频文件路径
+    const char *video_file = "/mnt/app/neuro.mp4";
+    printf("[video] Playing video file: %s\n", video_file);
+    
+#if LV_USE_FFMPEG != 0
+    // 隐藏主界面
+    lv_obj_add_flag(parent, LV_OBJ_FLAG_HIDDEN);
+    
+    // 创建视频播放器
+    lv_obj_t *player = lv_ffmpeg_player_create(lv_screen_active());
+    if (!player) {
+        printf("[video] Failed to create video player\n");
+        lv_obj_clear_flag(parent, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    
+    // 设置视频文件
+    lv_result_t ret = lv_ffmpeg_player_set_src(player, video_file);
+    if (ret != LV_RESULT_OK) {
+        printf("[video] Failed to set video source\n");
+        lv_obj_del(player);
+        lv_obj_clear_flag(parent, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    
+    // 设置播放器大小
+    lv_obj_set_size(player, LV_HOR_RES, LV_VER_RES);
+    lv_obj_center(player);
+    
+    // 启用音频
+#if LV_FFMPEG_AUDIO_SUPPORT != 0
+    lv_ffmpeg_player_set_audio_enabled(player, true);
+    lv_ffmpeg_player_set_volume(player, 75);
+#endif
+    
+    // 设置自动重播
+    lv_ffmpeg_player_set_auto_restart(player, true);
+    
+    // 开始播放
+    lv_ffmpeg_player_set_cmd(player, LV_FFMPEG_PLAYER_CMD_START);
+    
+    printf("[video] Video playback started\n");
+#else
+    printf("[video] FFmpeg support is not enabled\n");
+#endif
 }
 // void event_audio_test(lv_event_t * e)     /* 暂时不需要了 */
 // {

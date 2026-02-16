@@ -1033,7 +1033,11 @@
     /** Enable audio support in FFmpeg player
      *  Set to 1 to enable audio decoding and playback support in video player
      *  Set to 0 to disable audio support (saves memory and CPU) */
-    #define LV_FFMPEG_AUDIO_SUPPORT 1
+    #define LV_FFMPEG_AUDIO_SUPPORT 1    /** Select audio output mode in FFmpeg player
+     *  Set to 0 to use ALSA PCM direct output (snd_pcm_writei)
+     *  Set to 1 to use FFmpeg avdevice output (av_interleaved_write_frame)
+     *  This option is only effective when LV_FFMPEG_AUDIO_SUPPORT is enabled */
+    #define LV_FFMPEG_USE_AVDEVICE 0
 #endif
 
 /*==================
