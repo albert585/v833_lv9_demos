@@ -1038,6 +1038,16 @@
      *  Set to 1 to use FFmpeg avdevice output (av_interleaved_write_frame)
      *  This option is only effective when LV_FFMPEG_AUDIO_SUPPORT is enabled */
     #define LV_FFMPEG_USE_AVDEVICE 0
+    /** Enable hardware acceleration for MJPEG decoding
+     *  Set to 1 to enable MJPEG hardware decoding (V4L2 M2M or Cedrus)
+     *  Set to 0 to use software decoding (default)
+     *  Note: Hardware acceleration requires proper kernel support and drivers */
+    #define LV_FFMPEG_HWACCEL_MJPEG 0
+    /** Enable audio-video synchronization in FFmpeg player
+     *  Set to 1 to enable PTS-based audio-video synchronization
+     *  Set to 0 to disable synchronization (audio and video play independently)
+     *  Note: Synchronization requires valid PTS timestamps in the video file */
+    #define LV_FFMPEG_SYNC_ENABLED 0
 #endif
 
 /*==================

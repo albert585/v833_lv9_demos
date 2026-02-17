@@ -185,17 +185,27 @@ static void saveCpuFreq(void) {
 // 设置为最低频率（切换到 powersave governor）
 static void setCpuMinFreq(void) {
     saveCpuFreq();
-    system("echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
-    printf("[cpu] Set to minimum frequency (powersave mode)\n");
+    FILE *fp = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "w");
+    if (fp) {
+        fprintf(fp, "powersave");
+        fclose(fp);
+        printf("[cpu] Set to minimum frequency (powersave mode)\n");
+    } else {
+        printf("[cpu] Failed to set powersave governor\n");
+    }
 }
 
 // 恢复原始CPU governor
 static void restoreCpuFreq(void) {
     if (original_governor[0] != 0) {
-        char cmd[128];
-        snprintf(cmd, sizeof(cmd), "echo %s > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", original_governor);
-        system(cmd);
-        printf("[cpu] Restored governor: %s\n", original_governor);
+        FILE *fp = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "w");
+        if (fp) {
+            fprintf(fp, "%s", original_governor);
+            fclose(fp);
+            printf("[cpu] Restored governor: %s\n", original_governor);
+        } else {
+            printf("[cpu] Failed to restore governor\n");
+        }
     } else {
         printf("[cpu] No original governor to restore\n");
     }

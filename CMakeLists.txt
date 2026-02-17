@@ -99,17 +99,6 @@ add_custom_command(TARGET lvglsim POST_BUILD
     COMMENT "Stripping debug symbols from lvglsim"
 )
 
-# Create ALSA test program
-add_executable(test_alsa src/test_alsa.c)
-target_include_directories(test_alsa PRIVATE ${CROSS_COMPILE_INCLUDE_DIRS})
-target_link_libraries(test_alsa -L/srv/alsa/lib -lasound -lpthread)
-
-# Strip debug symbols from test_alsa after building
-add_custom_command(TARGET test_alsa POST_BUILD
-    COMMAND ${CMAKE_STRIP} --strip-unneeded $<TARGET_FILE:test_alsa>
-    COMMENT "Stripping debug symbols from test_alsa"
-)
-
 # Set executable properties
 set_target_properties(lvgl_linux PROPERTIES
     LINKER_LANGUAGE C

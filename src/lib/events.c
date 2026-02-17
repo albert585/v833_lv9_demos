@@ -149,7 +149,7 @@ void event_play_video(lv_event_t *e)
     printf("[video] Play video button clicked\n");
     
     // 视频文件路径
-    const char *video_file = "/mnt/app/neuro.mp4";
+    const char *video_file = "/mnt/app/neuro.avi";
     printf("[video] Playing video file: %s\n", video_file);
     
 #if LV_USE_FFMPEG != 0
