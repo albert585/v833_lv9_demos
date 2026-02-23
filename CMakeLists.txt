@@ -13,19 +13,21 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Set default build type to Debug if not specified
+# Set default build type to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# Set default build type to Debug if not specified
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+# Set compiler flags based on build type
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    # Debug mode: no optimization, keep debug symbols
+    set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -g -O0" CACHE STRING "C compiler flags" FORCE)
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -g -O0" CACHE STRING "C++ compiler flags" FORCE)
+else()
+    # Release mode: optimization enabled
+    set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -g -O2" CACHE STRING "C compiler flags" FORCE)
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -g -O2" CACHE STRING "C++ compiler flags" FORCE)
 endif()
-
-# Force -O2 optimization for all build types
-set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -g -O2" CACHE STRING "C compiler flags" FORCE)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -g -O2" CACHE STRING "C++ compiler flags" FORCE)
 
 # Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -55,6 +57,47 @@ add_subdirectory(lvgl)
 # Add lv_lib_100ask subdirectory
 add_subdirectory(src/lib/lv_lib_100ask)
 
+# Lua library source files
+set(LUA_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lapi.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lfunc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lstate.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lvm.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/ltable.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lstring.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lauxlib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lbaselib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lstrlib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/liolib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/loslib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lmathlib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lutf8lib.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/linit.c
+)
+
+# Lua library header files
+set(LUA_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lua.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lua.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/luaconf.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lualib.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/lauxlib.h
+)
+
+# Create lua static library
+add_library(lua STATIC ${LUA_SOURCES})
+
+# Set library properties
+set_target_properties(lua PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    PUBLIC_HEADER "${LUA_HEADERS}"
+)
+
+# Add include directories for lua
+target_include_directories(lua PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua
+)
+
 # Project include directories
 set(PROJECT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -62,7 +105,7 @@ set(PROJECT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lib
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/virsual_novel
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lv_lib_100ask/
-
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/lua/
 )
 
 # Project source files (auto-discover all .c files in src/ except main.c)
@@ -112,10 +155,10 @@ target_include_directories(lvglsim PRIVATE
 
 # Add library directories for linking
 # Link libraries using traditional linker flags
-target_link_libraries(lvglsim lvgl_linux lvgl lv_lib_100ask -L/srv/evdev/lib -L/srv/openssl/lib -L/srv/zlib/lib -L/srv/ffmpeg/lib -L/srv/alsa/lib -Wl,-Bstatic -levdev -Wl,-Bdynamic -lssl -lcrypto -lavcodec -lavutil -lavformat -lswscale -lswresample -lavdevice -lasound -lz -lm -lpthread -ldl)
+target_link_libraries(lvglsim lvgl_linux lvgl lv_lib_100ask lua -L/srv/evdev/lib -L/srv/openssl/lib -L/srv/zlib/lib -L/srv/ffmpeg/lib -L/srv/alsa/lib -Wl,-Bstatic -levdev -Wl,-Bdynamic -lssl -lcrypto -lavcodec -lavutil -lavformat -lswscale -lswresample -lavdevice -lasound -lz -lm -lpthread -ldl)
 
 # Installation rules
-install(TARGETS lvgl_linux lvglsim
+install(TARGETS lvgl_linux lua lvglsim
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin

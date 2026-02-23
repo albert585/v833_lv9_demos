@@ -1,0 +1,17 @@
+# v833_lv9_demos Third-Party Copyright Notices
+
+## Lua
+Copyright (C) 1994-2025 Lua.org, PUC-Rio
+Authors: R. Ierusalimschy, L. H. de Figueiredo, W. Celes
+License: MIT License
+Location: src/lib/lua/
+
+## lv_lib_100ask
+Copyright (c) 2022 深圳百问网科技有限公司(www.100ask.net)
+License: MIT License
+Location: src/lib/lv_lib_100ask/
+
+## cJSON
+Copyright (c) 2009-2017 Dave Gamble and cJSON contributors
+License: MIT License
+Location: src/lib/virsual_novel/
